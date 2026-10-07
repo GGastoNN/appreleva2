@@ -1887,7 +1887,7 @@ private fun OpeningWorkflowCard(
             }
             AnimatedVisibility(visible = fastMode) {
                 Text(
-                    "Secuencia sugerida: medidas → controles → foto → marcar como relevado.",
+                    "Flujo recomendado: medidas → controles → foto → marcar como relevado.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )

@@ -288,36 +288,27 @@ class ReportPdf(private val context: Context) {
             style = Paint.Style.STROKE
             strokeWidth = 1f
         }
-        val missingBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(242, 245, 244) }
+        val photoBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(242, 245, 244) }
 
         shown.forEachIndexed { index, photo ->
             val left = margin + index * (cellWidth + gap)
             val dst = RectF(left, top, left + cellWidth, top + height)
+            canvas.drawRect(dst, photoBg)
+
             val bitmap = decodeSampledBitmap(photo.filePath, 900)
             if (bitmap != null) {
-                drawBitmapCenterCrop(canvas, bitmap, dst)
+                // La portada debe mostrar la fotografía completa. El ajuste anterior usaba
+                // center-crop y recortaba los bordes cuando la relación de aspecto de la
+                // imagen no coincidía con la celda del PDF. Fit-center conserva siempre
+                // la relación de aspecto y centra la imagen sin cortar contenido.
+                val contentBox = RectF(dst.left + 3f, dst.top + 3f, dst.right - 3f, dst.bottom - 3f)
+                drawBitmapFitCenter(canvas, bitmap, contentBox)
                 bitmap.recycle()
             } else {
-                canvas.drawRect(dst, missingBg)
                 canvas.drawText("Imagen no disponible", left + 8f, top + height / 2f, smallPaint)
             }
             canvas.drawRect(dst, border)
         }
-    }
-
-    private fun drawBitmapCenterCrop(canvas: Canvas, bitmap: Bitmap, dst: RectF) {
-        val srcRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
-        val dstRatio = dst.width() / dst.height()
-        val src = if (srcRatio > dstRatio) {
-            val wantedWidth = (bitmap.height * dstRatio).toInt().coerceAtLeast(1)
-            val left = ((bitmap.width - wantedWidth) / 2).coerceAtLeast(0)
-            Rect(left, 0, (left + wantedWidth).coerceAtMost(bitmap.width), bitmap.height)
-        } else {
-            val wantedHeight = (bitmap.width / dstRatio).toInt().coerceAtLeast(1)
-            val top = ((bitmap.height - wantedHeight) / 2).coerceAtLeast(0)
-            Rect(0, top, bitmap.width, (top + wantedHeight).coerceAtMost(bitmap.height))
-        }
-        canvas.drawBitmap(bitmap, src, dst, null)
     }
 
     private fun drawOpeningSheet(
