@@ -1,4 +1,4 @@
-# Grupo IDEA - Relevamientos — V1.2 interfaz dinámica y flujo rápido
+# Grupo IDEA - Relevamientos — V1.3.1 presentación local
 
 Aplicación Android nativa, offline-first, para relevamientos diarios de obra orientados a carpintería metálica.
 
@@ -12,7 +12,7 @@ Aplicación Android nativa, offline-first, para relevamientos diarios de obra or
 6. Clasificar la evidencia: Inicial / Incidencia / Corrección / Final.
 7. Girar la foto si hace falta.
 8. Agregar cotas, flechas, rectángulos, círculos o texto directamente sobre la imagen.
-9. Registrar una incidencia desde el vano cuando sea necesario.
+9. Registrar observaciones o eventos de obra cuando sea necesario.
 10. Compartir una foto técnica individual o generar el PDF completo de obra.
 
 ## Marca de empresa
@@ -45,7 +45,7 @@ El nombre de empresa es opcional. Si se deja vacío, no se fuerza ningún texto 
 - Flechas, rectángulos, círculos y notas de texto sobre fotografía.
 - Foto principal por vano.
 - Clasificación cronológica de fotos por etapa.
-- Incidencias rápidas vinculadas al vano y a la bitácora.
+- Eventos y observaciones vinculados al vano y a la bitácora.
 - Bitácora automática y manual.
 - Compartir JPG técnico con marca y anotaciones.
 - Fotos generales del edificio obligatorias para generar el PDF; se muestran en la portada.
@@ -54,7 +54,7 @@ El nombre de empresa es opcional. Si se deja vacío, no se fuerza ningún texto 
 - Se puede omitir la foto de un vano para reducir todavía más el peso del archivo.
 - Funcionamiento offline para relevamiento, fotos, base local y PDF.
 
-## Flujo rápido (v1.2)
+## Flujo rápido
 
 La ficha de vano incorpora un modo de trabajo rápido pensado para recorridos repetitivos en obra: muestra un progreso de cuatro pasos esenciales, permite avanzar al vano anterior/siguiente y dispone de `Guardar y siguiente` fijo en pantalla. El listado de vanos ahora tiene búsqueda, filtros por estado, indicadores de controles y una barra de avance del sector. El modo completo sigue disponible con un interruptor para acceder a identificación, holguras y condiciones técnicas avanzadas.
 
@@ -70,8 +70,8 @@ La detección automática ubica candidatos visuales de vano, pero no convierte p
 - CameraX 1.4.1
 - compileSdk / targetSdk 35
 - Java 17
-- versionCode 11
-- versionName 1.2.0
+- versionCode 17
+- versionName 1.3.3
 
 ## Transferencia entre dispositivos (v1.0)
 
