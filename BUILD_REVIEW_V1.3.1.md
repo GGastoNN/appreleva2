@@ -16,4 +16,4 @@ Esta versión parte del árbol local V1.3 y elimina archivos residuales de la ra
 
 No se incluyen servidor, sincronización remota, usuarios, autenticación, roles, aprobaciones empresariales, WorkManager de sync ni API.
 
-La compatibilidad histórica se conserva manteniendo los identificadores internos `com.illu.relevametal`, `relevametal.db` y `RELEVAMETAL_PROJECT_ARCHIVE`; no son nombres visibles del producto.
+La compatibilidad histórica se conserva manteniendo los identificadores internos `com.grupoidea.relevapp`, `relevametal.db` y `RELEVAMETAL_PROJECT_ARCHIVE`; no son nombres visibles del producto.

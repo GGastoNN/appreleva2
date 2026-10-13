@@ -1,4 +1,4 @@
-# Build Android — Grupo IDEA - Relevamientos 1.3.4
+# Build Android — Grupo IDEA - Relevamientos 1.3.6
 
 ## GitHub Actions
 
@@ -11,3 +11,10 @@ Abrir la carpeta raíz del proyecto, usar JDK 17 y sincronizar Gradle. El módul
 ## Alcance
 
 Esta rama no requiere servidor ni variables de entorno. La aplicación trabaja únicamente con persistencia local y archivos `.gidea`.
+
+
+## Identidad de aplicación
+
+- applicationId / namespace: `com.grupoidea.relevapp`
+- Marca corporativa fija: Grupo IDEA.
+- El workflow `Android APK` genera `app-debug.apk`.

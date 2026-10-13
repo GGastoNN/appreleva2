@@ -55,17 +55,7 @@ Las coordenadas se almacenan normalizadas respecto de la imagen y se transforman
 
 ## Marca corporativa
 
-Configuración persistente mediante preferencias locales:
-
-- nombre de empresa;
-- logo personalizado importado desde el dispositivo;
-- sello activado/desactivado;
-- fecha/hora opcional;
-- obra opcional;
-- sector opcional;
-- vano opcional.
-
-La foto original nunca se sobreescribe. Para compartir o incluir en PDF se genera una representación con sello y anotaciones.
+La identidad es exclusiva de Grupo IDEA y no es editable por el usuario. La aplicación incluye internamente el logo oficial, lo utiliza como marca fija y mantiene activos los datos de obra, sector, vano y fecha/hora en el sello técnico. La pantalla `Marca corporativa` es únicamente informativa.
 
 ## Incidencias
 
@@ -79,7 +69,7 @@ Desde cada vano se puede registrar rápidamente una incidencia con título, deta
 - La ficha PDF integra medidas, controles, observaciones y fotografía en una misma hoja.
 - Las imágenes del PDF se limitan a una resolución adecuada para impresión A4 para evitar archivos innecesariamente pesados.
 - JPG técnico individual para compartir desde Android.
-- Ambas salidas respetan rotación, anotaciones y marca configurada.
+- Ambas salidas respetan rotación, anotaciones y la marca corporativa fija de Grupo IDEA.
 
 ## Persistencia
 

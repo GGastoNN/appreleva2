@@ -24,4 +24,4 @@ Grupo IDEA - Relevamientos centraliza en el teléfono el relevamiento de obra: e
 - Cotas y marcas no destructivas sobre las fotos.
 - PDF compacto configurable antes de generar.
 - Respaldo/traslado completo mediante `.gidea`.
-- Personalización de marca, tema y colores técnicos.
+- Identidad corporativa fija de Grupo IDEA, con personalización de tema y colores técnicos.

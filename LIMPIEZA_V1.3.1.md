@@ -14,4 +14,4 @@ La estructura activa queda limitada a:
 - generación de PDF;
 - importación/exportación `.gidea`.
 
-Se mantienen por compatibilidad algunos identificadores internos históricos (`com.illu.relevametal`, `relevametal.db` y `RELEVAMETAL_PROJECT_ARCHIVE`). No aparecen como nombre comercial de la aplicación.
+Se mantienen por compatibilidad algunos identificadores internos históricos (`com.grupoidea.relevapp`, `relevametal.db` y `RELEVAMETAL_PROJECT_ARCHIVE`). No aparecen como nombre comercial de la aplicación.

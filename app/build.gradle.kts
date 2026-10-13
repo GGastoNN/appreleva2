@@ -6,15 +6,15 @@ plugins {
 }
 
 android {
-    namespace = "com.illu.relevametal"
+    namespace = "com.grupoidea.relevapp"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.illu.relevametal"
+        applicationId = "com.grupoidea.relevapp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "1.3.4"
+        versionCode = 20
+        versionName = "1.3.6"
     }
 
     buildFeatures { compose = true }

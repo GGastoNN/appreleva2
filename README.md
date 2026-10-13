@@ -1,4 +1,6 @@
-# Grupo IDEA - Relevamientos — V1.3.4 presentación local
+# Grupo IDEA - Relevamientos — V1.3.6 marca corporativa fija
+
+> **Identidad exclusiva:** esta compilación utiliza el paquete `com.grupoidea.relevapp` y una marca Grupo IDEA fija incluida dentro del APK. El logo no puede modificarse desde la aplicación.
 
 Aplicación Android nativa, offline-first, para relevamientos diarios de obra orientados a carpintería metálica.
 
@@ -15,18 +17,13 @@ Aplicación Android nativa, offline-first, para relevamientos diarios de obra or
 9. Registrar observaciones o eventos de obra cuando sea necesario.
 10. Compartir una foto técnica individual o generar el PDF completo de obra.
 
-## Marca de empresa
+## Marca corporativa
 
-Desde `Marca` en la pantalla principal se puede:
+La identidad de esta compilación es exclusiva de **Grupo IDEA**. El logo oficial está incluido dentro del APK y se utiliza automáticamente en la vista de marca y en los sellos de fotografías.
 
-- editar el nombre de empresa o dejarlo vacío para usar solo el logo / datos técnicos;
-- importar un logo PNG/JPG desde el teléfono;
-- activar/desactivar el sello;
-- decidir si el sello muestra fecha/hora, obra, sector y código de vano.
+Desde `Marca corporativa` se puede consultar la identidad aplicada, pero no editarla. No existe selector de logo, cambio de nombre de empresa ni opción para quitar o desactivar la marca.
 
-El archivo fotográfico original se conserva sin modificar. La marca y las anotaciones se renderizan en la visualización, al compartir la foto y dentro del PDF.
-
-El nombre de empresa es opcional. Si se deja vacío, no se fuerza ningún texto corporativo en las fotografías ni en el encabezado del PDF.
+El archivo fotográfico original se conserva sin modificar. La marca y las anotaciones se renderizan únicamente en la visualización, al compartir la foto y al generar los documentos correspondientes.
 
 ## Herramientas incluidas
 
