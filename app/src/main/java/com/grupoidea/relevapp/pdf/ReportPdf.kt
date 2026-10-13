@@ -3,6 +3,7 @@ package com.grupoidea.relevapp.pdf
 import android.content.Context
 import android.graphics.*
 import android.graphics.pdf.PdfDocument
+import com.grupoidea.relevapp.R
 import com.grupoidea.relevapp.annotation.AnnotationCodec
 import com.grupoidea.relevapp.annotation.MeasurementAnnotation
 import com.grupoidea.relevapp.branding.BrandingSettings
@@ -60,6 +61,20 @@ class ReportPdf(private val context: Context) {
         strokeWidth = 1f
     }
 
+    /**
+     * Marca de agua corporativa fija. Se dibuja al finalizar cada página para
+     * que también quede visible sobre fotografías y demás contenido del PDF.
+     */
+    private val companyWatermark: Bitmap? by lazy {
+        runCatching {
+            BitmapFactory.decodeResource(context.resources, R.drawable.grupoidea_watermark)
+        }.getOrNull()
+    }
+
+    private val watermarkPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+        alpha = 34 // ~13 %: visible sin comprometer la lectura ni las cotas
+    }
+
     fun generate(
         project: ProjectEntity,
         spaces: List<SpaceBundle>,
@@ -86,6 +101,7 @@ class ReportPdf(private val context: Context) {
         }
 
         fun finish(page: PdfDocument.Page) {
+            drawCompanyWatermark(page.canvas)
             pdf.finishPage(page)
         }
 
@@ -180,6 +196,31 @@ class ReportPdf(private val context: Context) {
         FileOutputStream(out).use { pdf.writeTo(it) }
         pdf.close()
         return out
+    }
+
+    private fun drawCompanyWatermark(canvas: Canvas) {
+        val bitmap = companyWatermark ?: return
+        if (bitmap.width <= 0 || bitmap.height <= 0) return
+
+        // Ocupa una zona amplia del centro, pero respeta la proporción del logo.
+        // Al usar un PNG con fondo transparente no se genera un rectángulo blanco.
+        val maxWidth = pageWidth * 0.74f
+        val maxHeight = pageHeight * 0.31f
+        val scale = minOf(
+            maxWidth / bitmap.width.toFloat(),
+            maxHeight / bitmap.height.toFloat()
+        )
+        val drawWidth = bitmap.width * scale
+        val drawHeight = bitmap.height * scale
+        val left = (pageWidth - drawWidth) / 2f
+        val top = (pageHeight - drawHeight) / 2f
+
+        canvas.drawBitmap(
+            bitmap,
+            null,
+            RectF(left, top, left + drawWidth, top + drawHeight),
+            watermarkPaint
+        )
     }
 
     private fun drawHeader(canvas: Canvas, projectName: String, pageNo: Int, branding: BrandingSettings) {
