@@ -35,5 +35,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
-          name: GrupoIDEA-RelevApp-v1.3.8-debug-apk
+          name: GrupoIDEA-RelevApp-v1.3.9-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
