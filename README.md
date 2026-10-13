@@ -1,4 +1,4 @@
-# Grupo IDEA - Relevamientos — V1.3.1 presentación local
+# Grupo IDEA - Relevamientos — V1.3.4 presentación local
 
 Aplicación Android nativa, offline-first, para relevamientos diarios de obra orientados a carpintería metálica.
 
@@ -47,6 +47,9 @@ El nombre de empresa es opcional. Si se deja vacío, no se fuerza ningún texto 
 - Clasificación cronológica de fotos por etapa.
 - Eventos y observaciones vinculados al vano y a la bitácora.
 - Bitácora automática y manual.
+- Notas de audio generales por obra.
+- Notas de audio compartidas por tipología de vano dentro de cada obra.
+- Reproducción y eliminación de notas de voz directamente desde la app.
 - Compartir JPG técnico con marca y anotaciones.
 - Fotos generales del edificio obligatorias para generar el PDF; se muestran en la portada.
 - PDF compacto: una ficha por vano con medidas y la foto seleccionada en la misma hoja.
@@ -70,12 +73,12 @@ La detección automática ubica candidatos visuales de vano, pero no convierte p
 - CameraX 1.4.1
 - compileSdk / targetSdk 35
 - Java 17
-- versionCode 17
-- versionName 1.3.3
+- versionCode 18
+- versionName 1.3.4
 
 ## Transferencia entre dispositivos (v1.0)
 
-La aplicación puede exportar una obra o todas las obras a un archivo `*.gidea` e importarlo en otro dispositivo con la misma aplicación. El respaldo contiene la estructura completa del relevamiento y todas las fotografías originales con sus cotas/anotaciones. Las obras importadas se agregan como nuevas, sin sobrescribir las existentes.
+La aplicación puede exportar una obra o todas las obras a un archivo `*.gidea` e importarlo en otro dispositivo con la misma aplicación. El respaldo contiene la estructura completa del relevamiento, fotografías originales, cotas/anotaciones y notas de audio. Las obras importadas se agregan como nuevas, sin sobrescribir las existentes.
 
 
 ## Personalización
@@ -85,4 +88,4 @@ Desde **Ajustes → Personalización** se puede elegir tema del sistema, claro u
 
 ## Enfoque actual
 
-La versión 1.3 funciona de forma autónoma y offline. No utiliza servicios de nube, usuarios ni sincronización remota. La persistencia necesaria para que los relevamientos no se pierdan se mantiene localmente en el dispositivo, y el intercambio/backup se realiza mediante archivos `.gidea`.
+La versión 1.3.4 funciona de forma autónoma y offline. No utiliza servicios de nube, usuarios ni sincronización remota. La persistencia necesaria para que los relevamientos no se pierdan se mantiene localmente en el dispositivo, y el intercambio/backup se realiza mediante archivos `.gidea`.

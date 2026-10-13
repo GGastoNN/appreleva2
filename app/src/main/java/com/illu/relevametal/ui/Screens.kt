@@ -2,6 +2,10 @@
 
 package com.illu.relevametal.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.media.MediaPlayer
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
@@ -33,12 +37,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import com.illu.relevametal.R
+import com.illu.relevametal.audio.AudioNoteRecorder
 import com.illu.relevametal.annotation.AnnotationCodec
 import com.illu.relevametal.annotation.AnnotationTool
 import com.illu.relevametal.annotation.MarkupAnnotation
 import com.illu.relevametal.annotation.MeasurementAnnotation
 import com.illu.relevametal.branding.BrandingSettings
+import com.illu.relevametal.data.AudioNoteEntity
 import com.illu.relevametal.data.EvidenceEntity
 import com.illu.relevametal.data.EventEntity
 import com.illu.relevametal.data.OpeningEntity
@@ -59,6 +67,7 @@ import com.illu.relevametal.personalization.isValidHexColor
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
+import java.io.File
 
 private val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
@@ -90,7 +99,7 @@ fun ProjectsScreen(
                 dataBusy = false
                 result.onSuccess { imported ->
                     val totalPhotos = imported.evidencePhotos + imported.referencePhotos
-                    dataMessage = "Importación completa: ${imported.projects} obra(s), ${imported.spaces} espacio(s), ${imported.openings} vano(s) y $totalPhotos foto(s)."
+                    dataMessage = "Importación completa: ${imported.projects} obra(s), ${imported.spaces} espacio(s), ${imported.openings} vano(s), $totalPhotos foto(s) y ${imported.audioNotes} nota(s) de audio."
                 }.onFailure {
                     dataError = it.message ?: "No se pudo importar el archivo"
                 }
@@ -340,7 +349,7 @@ private fun DataTransferDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     "Podés mover las obras completas a otro dispositivo con Grupo IDEA - Relevamientos. " +
-                        "El archivo .gidea incluye espacios, vanos, medidas, controles, bitácora, fotos originales, cotas y anotaciones."
+                        "El archivo .gidea incluye espacios, vanos, medidas, controles, bitácora, fotos originales, notas de audio, cotas y anotaciones."
                 )
                 if (busy) {
                     Row(
@@ -613,6 +622,7 @@ fun ProjectScreen(
     val spaces by vm.spaces(projectId).collectAsState(initial = emptyList())
     val events by vm.events(projectId).collectAsState(initial = emptyList())
     val referencePhotos by vm.projectReferencePhotos(projectId).collectAsState(initial = emptyList())
+    val projectAudioNotes by vm.projectAudioNotes(projectId).collectAsState(initial = emptyList())
     val stats by vm.projectStats(projectId).collectAsState(initial = ProjectStats())
     var project by remember(projectId) { mutableStateOf<ProjectEntity?>(null) }
     var tab by remember { mutableIntStateOf(0) }
@@ -678,11 +688,18 @@ fun ProjectScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { if (tab == 0) showSpaceDialog = true else showEventDialog = true },
-                text = { Text(if (tab == 0) "Nuevo espacio" else "Nueva nota") },
-                icon = { Text("+") }
-            )
+            when (tab) {
+                0 -> ExtendedFloatingActionButton(
+                    onClick = { showSpaceDialog = true },
+                    text = { Text("Nuevo espacio") },
+                    icon = { Text("+") }
+                )
+                1 -> ExtendedFloatingActionButton(
+                    onClick = { showEventDialog = true },
+                    text = { Text("Nueva nota") },
+                    icon = { Text("+") }
+                )
+            }
         }
     ) { padding ->
         Column(
@@ -695,6 +712,7 @@ fun ProjectScreen(
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Espacios") })
                 Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Bitácora") })
                 Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Obra") })
+                Tab(selected = tab == 3, onClick = { tab = 3 }, text = { Text("Audio") })
             }
 
             when (tab) {
@@ -743,7 +761,7 @@ fun ProjectScreen(
                 }
 
                 1 -> Timeline(events)
-                else -> ProjectInfoEditor(
+                2 -> ProjectInfoEditor(
                     vm = vm,
                     project = p,
                     referencePhotos = referencePhotos,
@@ -751,6 +769,14 @@ fun ProjectScreen(
                         project = it
                         vm.updateProject(it)
                     }
+                )
+                else -> AudioNotesScreen(
+                    title = "Notas de audio generales",
+                    subtitle = "Grabá indicaciones, decisiones o recordatorios que apliquen a toda la obra.",
+                    notes = projectAudioNotes,
+                    createOutput = { vm.newAudioNoteFile(projectId) },
+                    onRecorded = { file, duration -> vm.addProjectAudioNote(projectId, file.absolutePath, duration) },
+                    onDelete = vm::deleteAudioNote
                 )
             }
         }
@@ -826,7 +852,7 @@ fun ProjectScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         "Se generará un archivo .gidea portable con toda la obra: espacios, vanos, medidas, controles, bitácora, " +
-                            "fotos generales, fotos de cada vano y todas sus cotas y anotaciones."
+                            "fotos generales, fotos de cada vano, notas de audio y todas sus cotas y anotaciones."
                     )
                     Text(
                         "Las fotos se guardan una sola vez junto con sus datos técnicos para evitar duplicar peso innecesariamente.",
@@ -1479,6 +1505,9 @@ fun OpeningScreen(
     var savedFlash by remember(o.id) { mutableStateOf(true) }
     var showIncidenceDialog by remember { mutableStateOf(false) }
     var fastMode by remember { mutableStateOf(true) }
+    val audioTypology = type.trim().uppercase(Locale.ROOT).ifBlank { "VANO" }
+    val typologyAudioFlow = remember(projectId, audioTypology) { vm.typologyAudioNotes(projectId, audioTypology) }
+    val typologyAudioNotes by typologyAudioFlow.collectAsState(initial = emptyList())
 
     fun buildOpening(): OpeningEntity = o.copy(
         code = code.trim().uppercase().ifBlank { o.code },
@@ -1781,6 +1810,32 @@ fun OpeningScreen(
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Comentarios") },
                         minLines = 2
+                    )
+                }
+            }
+
+            item {
+                SectionCard("Notas de audio · $audioTypology · ${typologyAudioNotes.size}") {
+                    Text(
+                        "Estas notas quedan asociadas a la tipología $audioTypology y se muestran también en otros vanos de la misma tipología dentro de esta obra.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    AudioNotesContent(
+                        notes = typologyAudioNotes,
+                        createOutput = { vm.newAudioNoteFile(projectId) },
+                        onRecorded = { file, duration ->
+                            vm.addTypologyAudioNote(
+                                projectId = projectId,
+                                openingId = openingId,
+                                typology = audioTypology,
+                                openingCode = code.ifBlank { o.code },
+                                path = file.absolutePath,
+                                durationMs = duration
+                            )
+                        },
+                        onDelete = vm::deleteAudioNote
                     )
                 }
             }
@@ -2325,6 +2380,220 @@ private fun EvidenceThumb(
             }
         }
     }
+}
+
+@Composable
+private fun AudioNotesScreen(
+    title: String,
+    subtitle: String,
+    notes: List<AudioNoteEntity>,
+    createOutput: () -> File,
+    onRecorded: (File, Long) -> Unit,
+    onDelete: (AudioNoteEntity) -> Unit
+) {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        item {
+            ElevatedCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    AudioNotesContent(notes, createOutput, onRecorded, onDelete)
+                }
+            }
+        }
+        item { Spacer(Modifier.height(30.dp)) }
+    }
+}
+
+@Composable
+private fun AudioNotesContent(
+    notes: List<AudioNoteEntity>,
+    createOutput: () -> File,
+    onRecorded: (File, Long) -> Unit,
+    onDelete: (AudioNoteEntity) -> Unit
+) {
+    val context = LocalContext.current
+    val recorder = remember { AudioNoteRecorder(context.applicationContext) }
+    var recording by remember { mutableStateOf(false) }
+    var elapsedSeconds by remember { mutableLongStateOf(0L) }
+    var recordError by remember { mutableStateOf<String?>(null) }
+    var currentOutput by remember { mutableStateOf<File?>(null) }
+    var playingId by remember { mutableStateOf<Long?>(null) }
+    var player by remember { mutableStateOf<MediaPlayer?>(null) }
+
+    fun stopPlayback() {
+        runCatching { player?.stop() }
+        runCatching { player?.release() }
+        player = null
+        playingId = null
+    }
+
+    fun startRecording() {
+        stopPlayback()
+        val output = createOutput()
+        runCatching { recorder.start(output) }
+            .onSuccess {
+                currentOutput = output
+                elapsedSeconds = 0L
+                recordError = null
+                recording = true
+            }
+            .onFailure {
+                runCatching { output.delete() }
+                recordError = it.message ?: "No se pudo iniciar la grabación"
+            }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startRecording()
+        else recordError = "Se necesita permiso de micrófono para crear notas de audio."
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (recording) recorder.cancel()
+            runCatching { player?.release() }
+        }
+    }
+
+    LaunchedEffect(recording) {
+        while (recording) {
+            delay(1000)
+            if (recording) elapsedSeconds++
+        }
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (!recording) {
+            Button(
+                onClick = {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        startRecording()
+                    } else {
+                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            ) { Text("● Grabar nota") }
+        } else {
+            Button(
+                onClick = {
+                    val result = recorder.stop()
+                    recording = false
+                    result.onSuccess { (file, duration) ->
+                        currentOutput = null
+                        onRecorded(file, duration)
+                    }.onFailure {
+                        currentOutput?.let { file -> runCatching { file.delete() } }
+                        currentOutput = null
+                        recordError = it.message ?: "No se pudo guardar la nota de audio"
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            ) { Text("■ Finalizar · ${formatAudioDuration(elapsedSeconds * 1000L)}") }
+            OutlinedButton(
+                onClick = {
+                    recorder.cancel()
+                    currentOutput = null
+                    recording = false
+                    elapsedSeconds = 0L
+                }
+            ) { Text("Cancelar") }
+        }
+    }
+
+    recordError?.let {
+        Spacer(Modifier.height(8.dp))
+        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    }
+
+    Spacer(Modifier.height(10.dp))
+
+    if (notes.isEmpty()) {
+        Text(
+            "Sin notas de audio todavía.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            notes.forEach { note ->
+                OutlinedCard(Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                dateFormat.format(Date(note.createdAt)),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                buildString {
+                                    append(formatAudioDuration(note.durationMs))
+                                    if (note.contextLabel.isNotBlank()) append(" · grabada desde ${note.contextLabel}")
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                if (playingId == note.id) {
+                                    stopPlayback()
+                                } else {
+                                    stopPlayback()
+                                    runCatching {
+                                        val next = MediaPlayer().apply {
+                                            setDataSource(note.filePath)
+                                            prepare()
+                                            setOnCompletionListener { completed ->
+                                                completed.release()
+                                                if (player === completed) player = null
+                                                playingId = null
+                                            }
+                                            start()
+                                        }
+                                        player = next
+                                        playingId = note.id
+                                        recordError = null
+                                    }.onFailure {
+                                        stopPlayback()
+                                        recordError = "No se pudo reproducir esta nota de audio."
+                                    }
+                                }
+                            }
+                        ) { Text(if (playingId == note.id) "Detener" else "Escuchar") }
+                        TextButton(
+                            onClick = {
+                                if (playingId == note.id) stopPlayback()
+                                onDelete(note)
+                            }
+                        ) { Text("Eliminar") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatAudioDuration(durationMs: Long): String {
+    val totalSeconds = (durationMs / 1000L).coerceAtLeast(0L)
+    val minutes = totalSeconds / 60L
+    val seconds = totalSeconds % 60L
+    return "%d:%02d".format(Locale.ROOT, minutes, seconds)
 }
 
 @Composable

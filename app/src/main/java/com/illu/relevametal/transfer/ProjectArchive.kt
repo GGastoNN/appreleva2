@@ -37,7 +37,8 @@ class ProjectArchiveManager(
         val spaces: Int,
         val openings: Int,
         val evidencePhotos: Int,
-        val referencePhotos: Int
+        val referencePhotos: Int,
+        val audioNotes: Int
     )
 
     companion object {
@@ -91,6 +92,15 @@ class ProjectArchiveManager(
                 spacesJson.put(spaceJson)
             }
             projectJson.put("spaces", spacesJson)
+
+            val audioJson = JSONArray()
+            db.audioNotes().listForProject(projectId).forEach { note ->
+                val source = requireMedia(note.filePath, "una nota de audio de ${project.name}")
+                val archivePath = "media/projects/${project.id}/audio/${note.id}_${safeFileName(source.name)}"
+                media += archivePath to source
+                audioJson.put(audioNoteToJson(note).put("file", archivePath))
+            }
+            projectJson.put("audioNotes", audioJson)
 
             val eventsJson = JSONArray()
             db.events().list(projectId).forEach { event -> eventsJson.put(eventToJson(event)) }
@@ -154,6 +164,7 @@ class ProjectArchiveManager(
             var openingsCount = 0
             var evidenceCount = 0
             var referenceCount = 0
+            var audioCount = 0
 
             db.withTransaction {
                 for (pi in 0 until projects.length()) {
@@ -219,6 +230,27 @@ class ProjectArchiveManager(
                         }
                     }
 
+                    val audioNotes = projectJson.optJSONArray("audioNotes") ?: JSONArray()
+                    for (ai in 0 until audioNotes.length()) {
+                        val audioJson = audioNotes.getJSONObject(ai)
+                        val source = archiveMedia(staging, audioJson.getString("file"), "una nota de audio")
+                        val target = copyImportedAudio(
+                            source = source,
+                            targetDir = File(context.filesDir, "audio_notes/project_$newProjectId")
+                        )
+                        copiedFiles += target
+                        val oldOpeningId = audioJson.optLongOrNull("openingId")
+                        db.audioNotes().insert(
+                            audioNoteFromJson(
+                                json = audioJson,
+                                newProjectId = newProjectId,
+                                newOpeningId = oldOpeningId?.let(openingIdMap::get),
+                                newPath = target.absolutePath
+                            ).copy(id = 0)
+                        )
+                        audioCount++
+                    }
+
                     val events = projectJson.optJSONArray("events") ?: JSONArray()
                     for (ei in 0 until events.length()) {
                         val eventJson = events.getJSONObject(ei)
@@ -242,7 +274,8 @@ class ProjectArchiveManager(
                 spaces = spacesCount,
                 openings = openingsCount,
                 evidencePhotos = evidenceCount,
-                referencePhotos = referenceCount
+                referencePhotos = referenceCount,
+                audioNotes = audioCount
             )
         } catch (t: Throwable) {
             copiedFiles.forEach { runCatching { it.delete() } }
@@ -275,11 +308,11 @@ class ProjectArchiveManager(
         }
     }
 
-    private fun archiveMedia(staging: File, relativePath: String): File {
+    private fun archiveMedia(staging: File, relativePath: String, description: String = "una fotografía"): File {
         val rootPath = staging.canonicalPath + File.separator
         val target = File(staging, relativePath)
         require(target.canonicalPath.startsWith(rootPath) && target.isFile) {
-            "Falta una fotografía dentro del respaldo"
+            "Falta $description dentro del respaldo"
         }
         return target
     }
@@ -297,6 +330,21 @@ class ProjectArchiveManager(
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
             target.delete()
             error("El respaldo contiene una fotografía dañada o no compatible")
+        }
+        return target
+    }
+
+    private fun copyImportedAudio(source: File, targetDir: File): File {
+        targetDir.mkdirs()
+        val ext = source.extension.lowercase(Locale.US)
+            .filter { it.isLetterOrDigit() }
+            .take(8)
+            .ifBlank { "m4a" }
+        val target = File(targetDir, "import_audio_${System.currentTimeMillis()}_${UUID.randomUUID()}.$ext")
+        source.inputStream().use { input -> target.outputStream().use { output -> input.copyTo(output) } }
+        if (!target.isFile || target.length() <= 0L) {
+            target.delete()
+            error("El respaldo contiene una nota de audio dañada")
         }
         return target
     }
@@ -440,6 +488,33 @@ class ProjectArchiveManager(
         isPrimary = json.optBoolean("isPrimary", false),
         rotationDegrees = json.optInt("rotationDegrees", 0),
         phase = json.optString("phase", "GENERAL")
+    )
+
+    private fun audioNoteToJson(item: AudioNoteEntity) = JSONObject()
+        .put("id", item.id)
+        .put("projectId", item.projectId)
+        .put("scope", item.scope)
+        .put("typology", item.typology)
+        .putNullable("openingId", item.openingId)
+        .put("contextLabel", item.contextLabel)
+        .put("durationMs", item.durationMs)
+        .put("createdAt", item.createdAt)
+
+    private fun audioNoteFromJson(
+        json: JSONObject,
+        newProjectId: Long,
+        newOpeningId: Long?,
+        newPath: String
+    ) = AudioNoteEntity(
+        id = json.optLong("id", 0L),
+        projectId = newProjectId,
+        scope = json.optString("scope", "PROJECT"),
+        typology = json.optString("typology"),
+        openingId = newOpeningId,
+        contextLabel = json.optString("contextLabel"),
+        filePath = newPath,
+        durationMs = json.optLong("durationMs", 0L),
+        createdAt = json.optLong("createdAt", System.currentTimeMillis())
     )
 
     private fun eventToJson(item: EventEntity) = JSONObject()

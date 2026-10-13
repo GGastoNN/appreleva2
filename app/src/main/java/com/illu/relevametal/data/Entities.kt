@@ -102,6 +102,25 @@ data class EvidenceEntity(
     @ColumnInfo(defaultValue = "'GENERAL'") val phase: String = "GENERAL"
 )
 
+
+
+@Entity(
+    tableName = "audio_notes",
+    foreignKeys = [ForeignKey(ProjectEntity::class, ["id"], ["projectId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("projectId"), Index("openingId"), Index("typology")]
+)
+data class AudioNoteEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val projectId: Long,
+    @ColumnInfo(defaultValue = "'PROJECT'") val scope: String = "PROJECT",
+    @ColumnInfo(defaultValue = "''") val typology: String = "",
+    val openingId: Long? = null,
+    @ColumnInfo(defaultValue = "''") val contextLabel: String = "",
+    val filePath: String,
+    @ColumnInfo(defaultValue = "0") val durationMs: Long = 0L,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
 @Entity(
     tableName = "events",
     foreignKeys = [ForeignKey(ProjectEntity::class, ["id"], ["projectId"], onDelete = ForeignKey.CASCADE)],

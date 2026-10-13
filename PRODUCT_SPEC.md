@@ -24,6 +24,11 @@ Incluye identificación, tipo, medidas, diagonales, espesores, profundidad, holg
 
 La opción `Duplicar vano` copia la geometría y el tipo de una ficha existente para acelerar series repetitivas. El nuevo vano obtiene código automático y reinicia controles/estado para evitar asumir que dos ubicaciones fueron verificadas de la misma forma.
 
+
+## Notas de audio
+
+La obra dispone de notas de audio generales para registrar indicaciones, decisiones o recordatorios. Cada ficha de vano también permite grabar notas asociadas a su tipología; esas notas se comparten automáticamente con otros vanos de la misma tipología dentro de la misma obra. Los audios se almacenan localmente en M4A/AAC, pueden reproducirse o eliminarse desde la app y forman parte del respaldo `.gidea`.
+
 ## Evidencia fotográfica
 
 Cada evidencia contiene:

@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.Locale
+import java.util.UUID
 
 data class ProjectStats(
     val spaces: Int = 0,
@@ -58,6 +60,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun evidence(openingId: Long) = db.evidence().observe(openingId)
     fun events(projectId: Long) = db.events().observe(projectId)
     fun projectReferencePhotos(projectId: Long) = db.projectReferencePhotos().observe(projectId)
+    fun projectAudioNotes(projectId: Long) = db.audioNotes().observeProject(projectId)
+    fun typologyAudioNotes(projectId: Long, typology: String) =
+        db.audioNotes().observeTypology(projectId, typology.trim().uppercase(Locale.ROOT))
 
     fun projectStats(projectId: Long): Flow<ProjectStats> = combine(
         db.spaces().count(projectId),
@@ -466,6 +471,84 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 title = "$code: fotografía eliminada"
             )
         )
+    }
+
+    fun newAudioNoteFile(projectId: Long): File {
+        val dir = File(getApplication<Application>().filesDir, "audio_notes/project_$projectId").apply { mkdirs() }
+        return File(dir, "audio_${System.currentTimeMillis()}_${UUID.randomUUID()}.m4a")
+    }
+
+    fun addProjectAudioNote(
+        projectId: Long,
+        path: String,
+        durationMs: Long
+    ) = viewModelScope.launch(Dispatchers.IO) {
+        val file = File(path)
+        if (!file.isFile || file.length() <= 0L) return@launch
+        db.audioNotes().insert(
+            AudioNoteEntity(
+                projectId = projectId,
+                scope = "PROJECT",
+                filePath = file.absolutePath,
+                durationMs = durationMs
+            )
+        )
+        db.events().insert(
+            EventEntity(
+                projectId = projectId,
+                kind = "AUDIO",
+                title = "Nota de audio general agregada",
+                detail = "Duración ${formatAudioDuration(durationMs)}"
+            )
+        )
+        touchProject(projectId)
+    }
+
+    fun addTypologyAudioNote(
+        projectId: Long,
+        openingId: Long,
+        typology: String,
+        openingCode: String,
+        path: String,
+        durationMs: Long
+    ) = viewModelScope.launch(Dispatchers.IO) {
+        val file = File(path)
+        if (!file.isFile || file.length() <= 0L) return@launch
+        val normalizedType = typology.trim().uppercase(Locale.ROOT).ifBlank { "VANO" }
+        db.audioNotes().insert(
+            AudioNoteEntity(
+                projectId = projectId,
+                scope = "TYPOLOGY",
+                typology = normalizedType,
+                openingId = openingId,
+                contextLabel = openingCode.trim().uppercase(Locale.ROOT),
+                filePath = file.absolutePath,
+                durationMs = durationMs
+            )
+        )
+        db.events().insert(
+            EventEntity(
+                projectId = projectId,
+                openingId = openingId,
+                kind = "AUDIO",
+                title = "$normalizedType: nota de audio agregada",
+                detail = listOf(openingCode.trim(), formatAudioDuration(durationMs)).filter { it.isNotBlank() }.joinToString(" · ")
+            )
+        )
+        touchProject(projectId)
+    }
+
+    fun deleteAudioNote(item: AudioNoteEntity) = viewModelScope.launch(Dispatchers.IO) {
+        db.audioNotes().delete(item)
+        runCatching { File(item.filePath).delete() }
+        touchProject(item.projectId)
+    }
+
+    private fun formatAudioDuration(durationMs: Long): String {
+        val totalSeconds = (durationMs / 1000L).coerceAtLeast(0L)
+        val minutes = totalSeconds / 60L
+        val seconds = totalSeconds % 60L
+        return "%d:%02d".format(Locale.ROOT, minutes, seconds)
     }
 
     fun addEvent(

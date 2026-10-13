@@ -109,6 +109,26 @@ interface EvidenceDao {
     suspend fun clearPrimary(openingId: Long)
 }
 
+
+
+@Dao
+interface AudioNoteDao {
+    @Query("SELECT * FROM audio_notes WHERE projectId=:projectId AND scope='PROJECT' ORDER BY createdAt DESC")
+    fun observeProject(projectId: Long): Flow<List<AudioNoteEntity>>
+
+    @Query("SELECT * FROM audio_notes WHERE projectId=:projectId AND scope='TYPOLOGY' AND typology=:typology COLLATE NOCASE ORDER BY createdAt DESC")
+    fun observeTypology(projectId: Long, typology: String): Flow<List<AudioNoteEntity>>
+
+    @Query("SELECT * FROM audio_notes WHERE projectId=:projectId ORDER BY createdAt")
+    suspend fun listForProject(projectId: Long): List<AudioNoteEntity>
+
+    @Insert
+    suspend fun insert(item: AudioNoteEntity): Long
+
+    @Delete
+    suspend fun delete(item: AudioNoteEntity)
+}
+
 @Dao
 interface EventDao {
     @Query("SELECT * FROM events WHERE projectId=:projectId ORDER BY createdAt DESC")
