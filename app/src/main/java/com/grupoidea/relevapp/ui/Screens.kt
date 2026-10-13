@@ -83,6 +83,7 @@ fun ProjectsScreen(
     var newProject by remember { mutableStateOf(false) }
     var showBranding by remember { mutableStateOf(false) }
     var showPersonalization by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
     var showSettingsMenu by remember { mutableStateOf(false) }
     var showDataTools by remember { mutableStateOf(false) }
     var dataBusy by remember { mutableStateOf(false) }
@@ -176,6 +177,14 @@ fun ProjectsScreen(
                                     showPersonalization = true
                                 }
                             )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Sobre esta app") },
+                                onClick = {
+                                    showSettingsMenu = false
+                                    showAbout = true
+                                }
+                            )
                         }
                     }
                 }
@@ -265,6 +274,9 @@ fun ProjectsScreen(
     }
     if (showPersonalization) {
         PersonalizationDialog(vm = vm, onDismiss = { showPersonalization = false })
+    }
+    if (showAbout) {
+        AboutAppDialog(onDismiss = { showAbout = false })
     }
 
     if (showDataTools) {
@@ -3011,6 +3023,100 @@ private fun HexColorSetting(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun AboutAppDialog(
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val packageInfo = remember(context.packageName) {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0) }.getOrNull()
+    }
+    val versionName = packageInfo?.versionName ?: "1.3.7"
+    val versionCode = packageInfo?.let {
+        androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(it).toString()
+    } ?: "21"
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Sobre esta app") },
+        confirmButton = {
+            Button(onClick = onDismiss) { Text("Cerrar") }
+        },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(R.drawable.app_logo),
+                        contentDescription = "Logo Grupo IDEA",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                            .padding(14.dp),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                    )
+                }
+
+                Text(
+                    "Grupo IDEA - Relevamientos",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Aplicación exclusiva para IDEA S.A.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                HorizontalDivider()
+                AboutInfoRow("Nombre de la app", "Grupo IDEA - Relevamientos")
+                AboutInfoRow("Desarrollador", "Gastón Cabás - Para IDEA S.A.")
+                AboutInfoRow("Empresa", "IDEA S.A.")
+                AboutInfoRow("Plataforma", "Android")
+                AboutInfoRow("Nombre del paquete", context.packageName)
+                AboutInfoRow("N° de versión", versionName)
+                AboutInfoRow("Código de versión", versionCode)
+                AboutInfoRow("Funcionamiento", "Local / offline")
+                AboutInfoRow("Formato de intercambio", ".gidea")
+
+                HorizontalDivider()
+                Text(
+                    "Herramienta para relevamientos de obra, registro de vanos, medidas, controles técnicos, fotografías, anotaciones, notas de audio e informes PDF.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "© 2026 IDEA S.A.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    )
+}
+
+@Composable
+private fun AboutInfoRow(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 

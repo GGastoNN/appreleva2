@@ -1,4 +1,4 @@
-# Build Android — Grupo IDEA - Relevamientos 1.3.6
+# Build Android — Grupo IDEA - Relevamientos 1.3.7
 
 ## GitHub Actions
 

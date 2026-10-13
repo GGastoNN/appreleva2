@@ -1,4 +1,4 @@
-# Grupo IDEA - Relevamientos — V1.3.6 marca corporativa fija
+# Grupo IDEA - Relevamientos — V1.3.7 marca corporativa fija
 
 > **Identidad exclusiva:** esta compilación utiliza el paquete `com.grupoidea.relevapp` y una marca Grupo IDEA fija incluida dentro del APK. El logo no puede modificarse desde la aplicación.
 
