@@ -3034,7 +3034,7 @@ private fun AboutAppDialog(
     val packageInfo = remember(context.packageName) {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0) }.getOrNull()
     }
-    val versionName = packageInfo?.versionName ?: "1.3.7"
+    val versionName = packageInfo?.versionName ?: "1.3.8"
     val versionCode = packageInfo?.let {
         androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(it).toString()
     } ?: "21"

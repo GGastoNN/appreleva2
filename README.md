@@ -1,4 +1,4 @@
-# Grupo IDEA - Relevamientos — V1.3.7 marca corporativa fija
+# Grupo IDEA - Relevamientos — V1.3.8 marca corporativa fija
 
 > **Identidad exclusiva:** esta compilación utiliza el paquete `com.grupoidea.relevapp` y una marca Grupo IDEA fija incluida dentro del APK. El logo no puede modificarse desde la aplicación.
 
@@ -70,7 +70,7 @@ La detección automática ubica candidatos visuales de vano, pero no convierte p
 - CameraX 1.4.1
 - compileSdk / targetSdk 35
 - Java 17
-- versionCode 18
+- versionCode 22
 - versionName 1.3.4
 
 ## Transferencia entre dispositivos (v1.0)

@@ -602,6 +602,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         onReady(result)
     }
 
+    fun updatePersonalization(settings: PersonalizationSettings) {
+        val normalized = personalizationStore.normalize(settings)
+        personalizationStore.save(normalized)
+        personalization.value = normalized
+    }
+
     fun importDataArchive(
         uri: Uri,
         onReady: (Result<ProjectArchiveManager.ImportResult>) -> Unit
