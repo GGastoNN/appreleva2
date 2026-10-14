@@ -1,4 +1,4 @@
-# Grupo IDEA - Relevamientos — V1.3.9 marca corporativa fija
+# Grupo IDEA - Relevamientos — V1.4.0 control de marca de agua PDF
 
 > **Identidad exclusiva:** esta compilación utiliza el paquete `com.grupoidea.relevapp` y una marca Grupo IDEA fija incluida dentro del APK. El logo no puede modificarse desde la aplicación.
 
@@ -21,7 +21,7 @@ Aplicación Android nativa, offline-first, para relevamientos diarios de obra or
 
 La identidad de esta compilación es exclusiva de **Grupo IDEA**. El logo oficial está incluido dentro del APK y se utiliza automáticamente en la vista de marca y en los sellos de fotografías.
 
-Desde `Marca corporativa` se puede consultar la identidad aplicada, pero no editarla. No existe selector de logo, cambio de nombre de empresa ni opción para quitar o desactivar la marca.
+Desde `Marca corporativa` se puede consultar la identidad aplicada, pero no editarla. No existe selector de logo ni cambio de nombre de empresa: la identidad de Grupo IDEA permanece fija. La marca de agua de los PDF es una preferencia independiente y sí puede activarse o desactivarse desde `Personalización`.
 
 El archivo fotográfico original se conserva sin modificar. La marca y las anotaciones se renderizan únicamente en la visualización, al compartir la foto y al generar los documentos correspondientes.
 
@@ -50,7 +50,7 @@ El archivo fotográfico original se conserva sin modificar. La marca y las anota
 - Compartir JPG técnico con marca y anotaciones.
 - Fotos generales del edificio obligatorias para generar el PDF; se muestran en la portada.
 - PDF compacto: una ficha por vano con medidas y la foto seleccionada en la misma hoja.
-- Cada hoja del PDF incorpora una marca de agua corporativa fija con el logo oficial de IDEA S.A.
+- Cada hoja del PDF puede incorporar el logo oficial de IDEA S.A. como marca de agua; desde Personalización se puede activarla/desactivarla, ajustar su opacidad y elegir si se dibuja delante o detrás del contenido.
 - Antes de exportar se puede elegir qué foto incluir en cada vano; por defecto se selecciona la última tomada.
 - Se puede omitir la foto de un vano para reducir todavía más el peso del archivo.
 - Funcionamiento offline para relevamiento, fotos, base local y PDF.
@@ -71,8 +71,8 @@ La detección automática ubica candidatos visuales de vano, pero no convierte p
 - CameraX 1.4.1
 - compileSdk / targetSdk 35
 - Java 17
-- versionCode 23
-- versionName 1.3.9
+- versionCode 24
+- versionName 1.4.0
 
 ## Transferencia entre dispositivos (v1.0)
 
@@ -81,9 +81,9 @@ La aplicación puede exportar una obra o todas las obras a un archivo `*.gidea` 
 
 ## Personalización
 
-Desde **Ajustes → Personalización** se puede elegir tema del sistema, claro u oscuro, cambiar el color principal de la interfaz y configurar los colores de cotas, flechas/figuras, textos, marcadores, detección automática y sello sobre fotografías. También se puede ajustar el espesor de las líneas y el tamaño de los textos de las anotaciones. Los estilos de cotas, marcas, textos y sello se aplican al editor, a las imágenes compartidas y a las fotografías renderizadas dentro del PDF; la detección automática mantiene su color configurable como ayuda visual del editor. Nada de esto modifica los JPG originales ni los datos geométricos de las cotas.
+Desde **Ajustes → Personalización** se puede elegir tema del sistema, claro u oscuro, cambiar el color principal de la interfaz y configurar los colores de cotas, flechas/figuras, textos, marcadores, detección automática y sello sobre fotografías. También se puede ajustar el espesor de las líneas, el tamaño de los textos y la **marca de agua de los PDF**: activarla o quitarla, regular su opacidad y elegir si queda delante o detrás del contenido. Los estilos de cotas, marcas, textos y sello se aplican al editor, a las imágenes compartidas y a las fotografías renderizadas dentro del PDF; la detección automática mantiene su color configurable como ayuda visual del editor. Nada de esto modifica los JPG originales ni los datos geométricos de las cotas.
 
 
 ## Enfoque actual
 
-La versión 1.3.9 funciona de forma autónoma y offline. No utiliza servicios de nube, usuarios ni sincronización remota. La persistencia necesaria para que los relevamientos no se pierdan se mantiene localmente en el dispositivo, y el intercambio/backup se realiza mediante archivos `.gidea`.
+La versión 1.4.0 funciona de forma autónoma y offline. No utiliza servicios de nube, usuarios ni sincronización remota. La persistencia necesaria para que los relevamientos no se pierdan se mantiene localmente en el dispositivo, y el intercambio/backup se realiza mediante archivos `.gidea`.
