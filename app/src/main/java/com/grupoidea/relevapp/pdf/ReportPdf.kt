@@ -10,6 +10,7 @@ import com.grupoidea.relevapp.branding.BrandingSettings
 import com.grupoidea.relevapp.data.*
 import com.grupoidea.relevapp.render.PhotoRenderer
 import com.grupoidea.relevapp.personalization.PersonalizationSettings
+import com.grupoidea.relevapp.personalization.PdfWatermarkLayer
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -17,6 +18,7 @@ import java.util.*
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.roundToInt
 
 class ReportPdf(private val context: Context) {
     data class OpeningBundle(
@@ -62,8 +64,9 @@ class ReportPdf(private val context: Context) {
     }
 
     /**
-     * Marca de agua corporativa fija. Se dibuja al finalizar cada página para
-     * que también quede visible sobre fotografías y demás contenido del PDF.
+     * Logo corporativo utilizado como marca de agua de los PDF. La identidad
+     * visual es fija; la visibilidad, opacidad y capa se controlan desde
+     * Personalización.
      */
     private val companyWatermark: Bitmap? by lazy {
         runCatching {
@@ -71,9 +74,6 @@ class ReportPdf(private val context: Context) {
         }.getOrNull()
     }
 
-    private val watermarkPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-        alpha = 34 // ~13 %: visible sin comprometer la lectura ni las cotas
-    }
 
     fun generate(
         project: ProjectEntity,
@@ -93,6 +93,9 @@ class ReportPdf(private val context: Context) {
             val page = pdf.startPage(info)
             val canvas = page.canvas
             canvas.drawColor(Color.WHITE)
+            if (personalization.watermarkEnabled && personalization.watermarkLayer == PdfWatermarkLayer.BACKGROUND) {
+                drawCompanyWatermark(canvas, personalization)
+            }
             drawHeader(canvas, project.name, pageNumber, branding)
             title?.let {
                 canvas.drawText(it, margin, 72f, h1Paint)
@@ -101,7 +104,9 @@ class ReportPdf(private val context: Context) {
         }
 
         fun finish(page: PdfDocument.Page) {
-            drawCompanyWatermark(page.canvas)
+            if (personalization.watermarkEnabled && personalization.watermarkLayer == PdfWatermarkLayer.FOREGROUND) {
+                drawCompanyWatermark(page.canvas, personalization)
+            }
             pdf.finishPage(page)
         }
 
@@ -198,7 +203,7 @@ class ReportPdf(private val context: Context) {
         return out
     }
 
-    private fun drawCompanyWatermark(canvas: Canvas) {
+    private fun drawCompanyWatermark(canvas: Canvas, personalization: PersonalizationSettings) {
         val bitmap = companyWatermark ?: return
         if (bitmap.width <= 0 || bitmap.height <= 0) return
 
@@ -215,11 +220,16 @@ class ReportPdf(private val context: Context) {
         val left = (pageWidth - drawWidth) / 2f
         val top = (pageHeight - drawHeight) / 2f
 
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+            alpha = (personalization.watermarkOpacity.coerceIn(0.05f, 0.80f) * 255f)
+                .roundToInt()
+                .coerceIn(13, 204)
+        }
         canvas.drawBitmap(
             bitmap,
             null,
             RectF(left, top, left + drawWidth, top + drawHeight),
-            watermarkPaint
+            paint
         )
     }
 

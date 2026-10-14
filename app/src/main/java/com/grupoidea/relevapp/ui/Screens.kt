@@ -62,12 +62,14 @@ import com.grupoidea.relevapp.personalization.DEFAULT_TEXT_PIN
 import com.grupoidea.relevapp.personalization.DEFAULT_STAMP_BACKGROUND
 import com.grupoidea.relevapp.personalization.DEFAULT_STAMP_TEXT
 import com.grupoidea.relevapp.personalization.PersonalizationSettings
+import com.grupoidea.relevapp.personalization.PdfWatermarkLayer
 import com.grupoidea.relevapp.personalization.colorInt
 import com.grupoidea.relevapp.personalization.isValidHexColor
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 import java.io.File
+import kotlin.math.roundToInt
 
 private val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
@@ -2917,6 +2919,69 @@ private fun PersonalizationDialog(
                     ScaleChip("Normal", 1f, draft.annotationTextScale) { draft = draft.copy(annotationTextScale = it) }
                     ScaleChip("Grande", 1.2f, draft.annotationTextScale) { draft = draft.copy(annotationTextScale = it) }
                     ScaleChip("Muy grande", 1.4f, draft.annotationTextScale) { draft = draft.copy(annotationTextScale = it) }
+                }
+
+                HorizontalDivider()
+                Text("Marca de agua del PDF", fontWeight = FontWeight.SemiBold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Mostrar marca de agua", style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            "Usa el logo oficial de IDEA S.A. en todas las páginas del informe.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = draft.watermarkEnabled,
+                        onCheckedChange = { draft = draft.copy(watermarkEnabled = it) }
+                    )
+                }
+
+                if (draft.watermarkEnabled) {
+                    Text(
+                        "Opacidad: ${(draft.watermarkOpacity * 100f).roundToInt()}%",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    Slider(
+                        value = draft.watermarkOpacity,
+                        onValueChange = { draft = draft.copy(watermarkOpacity = it) },
+                        valueRange = 0.05f..0.80f
+                    )
+                    Text(
+                        "Menor opacidad = marca más transparente; mayor opacidad = marca más visible.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Text("Posición respecto al contenido", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                    Row(
+                        Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = draft.watermarkLayer == PdfWatermarkLayer.BACKGROUND,
+                            onClick = { draft = draft.copy(watermarkLayer = PdfWatermarkLayer.BACKGROUND) },
+                            label = { Text("Detrás del contenido") }
+                        )
+                        FilterChip(
+                            selected = draft.watermarkLayer == PdfWatermarkLayer.FOREGROUND,
+                            onClick = { draft = draft.copy(watermarkLayer = PdfWatermarkLayer.FOREGROUND) },
+                            label = { Text("Delante del contenido") }
+                        )
+                    }
+                    Text(
+                        if (draft.watermarkLayer == PdfWatermarkLayer.BACKGROUND)
+                            "El contenido y las fotografías se dibujan por encima de la marca."
+                        else
+                            "La marca se dibuja al final y queda visible también sobre fotografías y textos.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 if (!colorsValid) {

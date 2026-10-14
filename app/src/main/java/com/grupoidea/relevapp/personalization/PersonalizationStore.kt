@@ -18,6 +18,11 @@ enum class AppThemeMode {
     DARK
 }
 
+enum class PdfWatermarkLayer {
+    BACKGROUND,
+    FOREGROUND
+}
+
 data class PersonalizationSettings(
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val accentColorHex: String = DEFAULT_ACCENT,
@@ -29,7 +34,10 @@ data class PersonalizationSettings(
     val stampBackgroundColorHex: String = DEFAULT_STAMP_BACKGROUND,
     val stampTextColorHex: String = DEFAULT_STAMP_TEXT,
     val annotationTextScale: Float = 1f,
-    val lineThicknessScale: Float = 1f
+    val lineThicknessScale: Float = 1f,
+    val watermarkEnabled: Boolean = true,
+    val watermarkOpacity: Float = 0.13f,
+    val watermarkLayer: PdfWatermarkLayer = PdfWatermarkLayer.FOREGROUND
 )
 
 class PersonalizationStore(context: Context) {
@@ -48,7 +56,14 @@ class PersonalizationStore(context: Context) {
         stampBackgroundColorHex = normalizeHexColor(prefs.getString("stamp_background_color", DEFAULT_STAMP_BACKGROUND).orEmpty(), DEFAULT_STAMP_BACKGROUND),
         stampTextColorHex = normalizeHexColor(prefs.getString("stamp_text_color", DEFAULT_STAMP_TEXT).orEmpty(), DEFAULT_STAMP_TEXT),
         annotationTextScale = prefs.getFloat("annotation_text_scale", 1f).coerceIn(0.75f, 1.5f),
-        lineThicknessScale = prefs.getFloat("line_thickness_scale", 1f).coerceIn(0.65f, 2f)
+        lineThicknessScale = prefs.getFloat("line_thickness_scale", 1f).coerceIn(0.65f, 2f),
+        watermarkEnabled = prefs.getBoolean("pdf_watermark_enabled", true),
+        watermarkOpacity = prefs.getFloat("pdf_watermark_opacity", 0.13f).coerceIn(0.05f, 0.80f),
+        watermarkLayer = runCatching {
+            PdfWatermarkLayer.valueOf(
+                prefs.getString("pdf_watermark_layer", PdfWatermarkLayer.FOREGROUND.name).orEmpty()
+            )
+        }.getOrDefault(PdfWatermarkLayer.FOREGROUND)
     )
 
     fun save(settings: PersonalizationSettings) {
@@ -65,6 +80,9 @@ class PersonalizationStore(context: Context) {
             .putString("stamp_text_color", normalized.stampTextColorHex)
             .putFloat("annotation_text_scale", normalized.annotationTextScale)
             .putFloat("line_thickness_scale", normalized.lineThicknessScale)
+            .putBoolean("pdf_watermark_enabled", normalized.watermarkEnabled)
+            .putFloat("pdf_watermark_opacity", normalized.watermarkOpacity)
+            .putString("pdf_watermark_layer", normalized.watermarkLayer.name)
             .apply()
     }
 
@@ -78,7 +96,8 @@ class PersonalizationStore(context: Context) {
         stampBackgroundColorHex = normalizeHexColor(settings.stampBackgroundColorHex, DEFAULT_STAMP_BACKGROUND),
         stampTextColorHex = normalizeHexColor(settings.stampTextColorHex, DEFAULT_STAMP_TEXT),
         annotationTextScale = settings.annotationTextScale.coerceIn(0.75f, 1.5f),
-        lineThicknessScale = settings.lineThicknessScale.coerceIn(0.65f, 2f)
+        lineThicknessScale = settings.lineThicknessScale.coerceIn(0.65f, 2f),
+        watermarkOpacity = settings.watermarkOpacity.coerceIn(0.05f, 0.80f)
     )
 }
 
