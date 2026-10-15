@@ -2923,64 +2923,47 @@ private fun PersonalizationDialog(
 
                 HorizontalDivider()
                 Text("Marca de agua del PDF", fontWeight = FontWeight.SemiBold)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Mostrar marca de agua", style = MaterialTheme.typography.labelLarge)
-                        Text(
-                            "Usa el logo oficial de IDEA S.A. en todas las páginas del informe.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = draft.watermarkEnabled,
-                        onCheckedChange = { draft = draft.copy(watermarkEnabled = it) }
-                    )
-                }
+                Text(
+                    "El logo oficial de IDEA S.A. se incluye siempre en todas las páginas del informe.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
-                if (draft.watermarkEnabled) {
-                    Text(
-                        "Opacidad: ${(draft.watermarkOpacity * 100f).roundToInt()}%",
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                    Slider(
-                        value = draft.watermarkOpacity,
-                        onValueChange = { draft = draft.copy(watermarkOpacity = it) },
-                        valueRange = 0.05f..0.80f
-                    )
-                    Text(
-                        "Menor opacidad = marca más transparente; mayor opacidad = marca más visible.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                val watermarkTransparency = 1f - draft.watermarkOpacity
+                Text(
+                    "Transparencia: ${(watermarkTransparency * 100f).roundToInt()}%",
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Slider(
+                    value = watermarkTransparency,
+                    onValueChange = { transparency ->
+                        draft = draft.copy(watermarkOpacity = 1f - transparency)
+                    },
+                    valueRange = 0.20f..0.95f
+                )
+                Text(
+                    "Más transparencia hace la marca más tenue; menos transparencia la hace más visible.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
-                    Text("Posición respecto al contenido", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                    Row(
-                        Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = draft.watermarkLayer == PdfWatermarkLayer.BACKGROUND,
-                            onClick = { draft = draft.copy(watermarkLayer = PdfWatermarkLayer.BACKGROUND) },
-                            label = { Text("Detrás del contenido") }
-                        )
-                        FilterChip(
-                            selected = draft.watermarkLayer == PdfWatermarkLayer.FOREGROUND,
-                            onClick = { draft = draft.copy(watermarkLayer = PdfWatermarkLayer.FOREGROUND) },
-                            label = { Text("Delante del contenido") }
-                        )
-                    }
-                    Text(
-                        if (draft.watermarkLayer == PdfWatermarkLayer.BACKGROUND)
-                            "El contenido y las fotografías se dibujan por encima de la marca."
-                        else
-                            "La marca se dibuja al final y queda visible también sobre fotografías y textos.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                Text(
+                    "Ubicación respecto al contenido",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    WatermarkLayerOption(
+                        title = "Al fondo",
+                        description = "La marca queda detrás de textos, datos y fotografías.",
+                        selected = draft.watermarkLayer == PdfWatermarkLayer.BACKGROUND,
+                        onClick = { draft = draft.copy(watermarkLayer = PdfWatermarkLayer.BACKGROUND) }
+                    )
+                    WatermarkLayerOption(
+                        title = "Al frente",
+                        description = "La marca queda visible por encima de fotografías y textos.",
+                        selected = draft.watermarkLayer == PdfWatermarkLayer.FOREGROUND,
+                        onClick = { draft = draft.copy(watermarkLayer = PdfWatermarkLayer.FOREGROUND) }
                     )
                 }
 
@@ -3019,6 +3002,49 @@ private fun ThemeModeChip(
         onClick = { onSelect(mode) },
         label = { Text(label) }
     )
+}
+
+@Composable
+private fun WatermarkLayerOption(
+    title: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = if (selected)
+            MaterialTheme.colorScheme.secondaryContainer
+        else
+            MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = null
+            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }
 
 @Composable

@@ -64,9 +64,9 @@ class ReportPdf(private val context: Context) {
     }
 
     /**
-     * Logo corporativo utilizado como marca de agua de los PDF. La identidad
-     * visual es fija; la visibilidad, opacidad y capa se controlan desde
-     * Personalización.
+     * Logo corporativo utilizado como marca de agua de los PDF. La marca es
+     * obligatoria y fija; desde Personalización solo se ajustan transparencia
+     * y posición respecto del contenido.
      */
     private val companyWatermark: Bitmap? by lazy {
         runCatching {
@@ -93,7 +93,7 @@ class ReportPdf(private val context: Context) {
             val page = pdf.startPage(info)
             val canvas = page.canvas
             canvas.drawColor(Color.WHITE)
-            if (personalization.watermarkEnabled && personalization.watermarkLayer == PdfWatermarkLayer.BACKGROUND) {
+            if (personalization.watermarkLayer == PdfWatermarkLayer.BACKGROUND) {
                 drawCompanyWatermark(canvas, personalization)
             }
             drawHeader(canvas, project.name, pageNumber, branding)
@@ -104,7 +104,7 @@ class ReportPdf(private val context: Context) {
         }
 
         fun finish(page: PdfDocument.Page) {
-            if (personalization.watermarkEnabled && personalization.watermarkLayer == PdfWatermarkLayer.FOREGROUND) {
+            if (personalization.watermarkLayer == PdfWatermarkLayer.FOREGROUND) {
                 drawCompanyWatermark(page.canvas, personalization)
             }
             pdf.finishPage(page)
