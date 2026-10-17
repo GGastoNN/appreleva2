@@ -7,7 +7,6 @@ Se agregó la sección **Sobre esta app** al menú principal de la aplicación.
 La pantalla muestra:
 
 - Nombre: Grupo IDEA - Relevamientos.
-- Desarrollador: Gastón Cabás - Para IDEA S.A.
 - Empresa: IDEA S.A.
 - Plataforma: Android.
 - Paquete instalado, leído desde Android en tiempo de ejecución.
