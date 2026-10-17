@@ -133,6 +133,27 @@ class ReportPdf(private val context: Context) {
                     openingsInSpace = space.openings.size
                 )
                 finish(page)
+
+                // La primera fotografía comparte la ficha técnica del vano. Cuando el
+                // usuario elige incluir todas, las restantes se agregan en páginas
+                // fotográficas completas para conservar detalle y anotaciones.
+                bundle.evidence.drop(1).forEachIndexed { photoIndex, evidence ->
+                    val photoPage = startPage(
+                        "VANO · ${bundle.opening.code} · FOTO ${photoIndex + 2} DE ${bundle.evidence.size}"
+                    )
+                    page = photoPage.first
+                    canvas = photoPage.second
+                    drawEvidencePage(
+                        canvas = canvas,
+                        project = project,
+                        space = space.space,
+                        opening = bundle.opening,
+                        evidence = evidence,
+                        branding = branding,
+                        personalization = personalization
+                    )
+                    finish(page)
+                }
             }
         }
 

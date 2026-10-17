@@ -121,7 +121,8 @@ private fun App(vm: AppViewModel) {
                     context.startActivity(
                         Intent.createChooser(sendIntent, "Compartir datos de la obra")
                     )
-                }
+                },
+                onDeleted = { screen = Screen.Projects }
             )
         }
 
@@ -137,7 +138,8 @@ private fun App(vm: AppViewModel) {
                         current.spaceId,
                         openingId
                     )
-                }
+                },
+                onDeleted = { screen = Screen.Project(current.projectId) }
             )
         }
 
@@ -169,6 +171,9 @@ private fun App(vm: AppViewModel) {
                 },
                 onNavigateOpening = { openingId ->
                     screen = Screen.Opening(current.projectId, current.spaceId, openingId)
+                },
+                onDeleted = {
+                    screen = Screen.Space(current.projectId, current.spaceId)
                 }
             )
         }

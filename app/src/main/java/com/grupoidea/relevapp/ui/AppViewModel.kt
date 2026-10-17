@@ -161,6 +161,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         db.projects().update(project.copy(updatedAt = System.currentTimeMillis()))
     }
 
+    fun deleteProject(projectId: Long, onDeleted: () -> Unit = {}) =
+        viewModelScope.launch(Dispatchers.IO) {
+            val project = db.projects().project(projectId) ?: return@launch
+
+            // Los registros relacionados se eliminan por CASCADE. Antes borramos los
+            // archivos físicos para no dejar fotografías o audios huérfanos.
+            db.projectReferencePhotos().list(projectId).forEach { photo ->
+                runCatching { File(photo.filePath).delete() }
+            }
+            db.spaces().list(projectId).forEach { space ->
+                db.openings().list(space.id).forEach { opening ->
+                    db.evidence().list(opening.id).forEach { evidence ->
+                        runCatching { File(evidence.filePath).delete() }
+                    }
+                }
+            }
+            db.audioNotes().listForProject(projectId).forEach { note ->
+                runCatching { File(note.filePath).delete() }
+            }
+
+            db.projects().delete(project)
+            runCatching {
+                File(getApplication<Application>().filesDir, "project_reference_photos/$projectId").deleteRecursively()
+            }
+            runCatching {
+                File(getApplication<Application>().filesDir, "audio_notes/project_$projectId").deleteRecursively()
+            }
+            withContext(Dispatchers.Main) { onDeleted() }
+        }
+
     fun addSpace(
         projectId: Long,
         name: String,
@@ -192,6 +222,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         )
         onCreated?.invoke(id)
     }
+
+    fun deleteSpace(projectId: Long, spaceId: Long, onDeleted: () -> Unit = {}) =
+        viewModelScope.launch(Dispatchers.IO) {
+            val space = db.spaces().get(spaceId) ?: return@launch
+            db.openings().list(spaceId).forEach { opening ->
+                db.evidence().list(opening.id).forEach { evidence ->
+                    runCatching { File(evidence.filePath).delete() }
+                }
+            }
+            db.spaces().delete(space)
+            db.events().insert(
+                EventEntity(
+                    projectId = projectId,
+                    kind = "SPACE_DELETED",
+                    title = "Espacio eliminado",
+                    detail = space.name
+                )
+            )
+            touchProject(projectId)
+            withContext(Dispatchers.Main) { onDeleted() }
+        }
 
     suspend fun nextOpeningCode(spaceId: Long): String {
         val existing = db.openings().list(spaceId)
@@ -337,6 +388,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             )
         )
     }
+
+    fun deleteOpening(projectId: Long, openingId: Long, onDeleted: () -> Unit = {}) =
+        viewModelScope.launch(Dispatchers.IO) {
+            val opening = db.openings().get(openingId) ?: return@launch
+            db.evidence().list(openingId).forEach { evidence ->
+                runCatching { File(evidence.filePath).delete() }
+            }
+            db.openings().delete(opening)
+            db.events().insert(
+                EventEntity(
+                    projectId = projectId,
+                    kind = "OPENING_DELETED",
+                    title = "${opening.code}: vano eliminado",
+                    detail = opening.type
+                )
+            )
+            touchProject(projectId)
+            withContext(Dispatchers.Main) { onDeleted() }
+        }
 
     fun addEvidence(
         projectId: Long,
@@ -556,7 +626,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun exportProject(
         projectId: Long,
-        selectedEvidenceIds: Map<Long, Long?>,
+        selectedEvidenceIds: Map<Long, List<Long>>,
         onReady: (Result<File>) -> Unit
     ) = viewModelScope.launch {
         val result = withContext(Dispatchers.IO) {
@@ -566,15 +636,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val openings = db.openings().list(space.id).map { opening ->
                         val allEvidence = db.evidence().list(opening.id)
                             .filter { File(it.filePath).isFile }
-                        val selectedId = if (selectedEvidenceIds.containsKey(opening.id)) {
-                            selectedEvidenceIds[opening.id]
+                            .sortedByDescending { it.createdAt }
+                        val selectedIds = if (selectedEvidenceIds.containsKey(opening.id)) {
+                            selectedEvidenceIds[opening.id].orEmpty()
                         } else {
-                            allEvidence.maxByOrNull { it.createdAt }?.id
+                            listOfNotNull(allEvidence.firstOrNull()?.id)
                         }
-                        val selected = selectedId?.let { id ->
+                        val selected = selectedIds.mapNotNull { id ->
                             allEvidence.firstOrNull { it.id == id }
                         }
-                        ReportPdf.OpeningBundle(opening, listOfNotNull(selected))
+                        ReportPdf.OpeningBundle(opening, selected)
                     }
                     ReportPdf.SpaceBundle(space, openings)
                 }

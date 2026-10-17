@@ -138,7 +138,7 @@ fun ProjectsScreen(
                         ) {
                             androidx.compose.foundation.Image(
                                 painter = androidx.compose.ui.res.painterResource(R.drawable.app_logo),
-                                contentDescription = "Logo de la aplicación",
+                                contentDescription = "Logo Grupo IDEA",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop
                             )
@@ -181,7 +181,7 @@ fun ProjectsScreen(
                             )
                             HorizontalDivider()
                             DropdownMenuItem(
-                                text = { Text("Sobre esta app") },
+                                text = { Text("Información") },
                                 onClick = {
                                     showSettingsMenu = false
                                     showAbout = true
@@ -631,7 +631,8 @@ fun ProjectScreen(
     onBack: () -> Unit,
     onOpenSpace: (Long) -> Unit,
     onSharePdf: (java.io.File) -> Unit,
-    onShareData: (java.io.File) -> Unit
+    onShareData: (java.io.File) -> Unit,
+    onDeleted: () -> Unit
 ) {
     val spaces by vm.spaces(projectId).collectAsState(initial = emptyList())
     val events by vm.events(projectId).collectAsState(initial = emptyList())
@@ -650,6 +651,8 @@ fun ProjectScreen(
     var showProjectDataDialog by remember { mutableStateOf(false) }
     var dataExporting by remember { mutableStateOf(false) }
     var dataExportError by remember { mutableStateOf<String?>(null) }
+    var showProjectMenu by remember { mutableStateOf(false) }
+    var showDeleteProject by remember { mutableStateOf(false) }
 
     LaunchedEffect(projectId) { project = vm.project(projectId) }
     val p = project
@@ -697,6 +700,23 @@ fun ProjectScreen(
                                 else -> "PDF"
                             }
                         )
+                    }
+                    Box {
+                        TextButton(onClick = { showProjectMenu = true }) {
+                            Text("⋮", style = MaterialTheme.typography.titleLarge)
+                        }
+                        DropdownMenu(
+                            expanded = showProjectMenu,
+                            onDismissRequest = { showProjectMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Eliminar obra") },
+                                onClick = {
+                                    showProjectMenu = false
+                                    showDeleteProject = true
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -878,6 +898,29 @@ fun ProjectScreen(
         )
     }
 
+    if (showDeleteProject) {
+        AlertDialog(
+            onDismissRequest = { showDeleteProject = false },
+            title = { Text("Eliminar obra") },
+            text = {
+                Text(
+                    "Se eliminará la obra ${p?.name.orEmpty().ifBlank { "seleccionada" }} junto con sus espacios, vanos, fotografías, notas de audio y bitácora. Esta acción no se puede deshacer."
+                )
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteProject = false }) { Text("Cancelar") }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteProject = false
+                        vm.deleteProject(projectId) { onDeleted() }
+                    }
+                ) { Text("Eliminar definitivamente") }
+            }
+        )
+    }
+
     dataExportError?.let { message ->
         AlertDialog(
             onDismissRequest = { dataExportError = null },
@@ -903,10 +946,14 @@ fun ProjectScreen(
 private fun PdfExportDialog(
     choices: List<PdfOpeningPhotoChoice>,
     onDismiss: () -> Unit,
-    onGenerate: (Map<Long, Long?>) -> Unit
+    onGenerate: (Map<Long, List<Long>>) -> Unit
 ) {
     var selections by remember(choices) {
-        mutableStateOf<Map<Long, Long?>>(choices.associate { it.openingId to it.defaultEvidenceId })
+        mutableStateOf<Map<Long, List<Long>>>(
+            choices.associate { choice ->
+                choice.openingId to listOfNotNull(choice.defaultEvidenceId)
+            }
+        )
     }
     var picking by remember { mutableStateOf<PdfOpeningPhotoChoice?>(null) }
 
@@ -914,11 +961,11 @@ private fun PdfExportDialog(
     if (currentPicker != null) {
         PdfPhotoPickerDialog(
             choice = currentPicker,
-            selectedEvidenceId = selections[currentPicker.openingId],
+            selectedEvidenceIds = selections[currentPicker.openingId].orEmpty(),
             onDismiss = { picking = null },
-            onSelect = { evidenceId ->
+            onSelect = { evidenceIds ->
                 selections = selections.toMutableMap().apply {
-                    put(currentPicker.openingId, evidenceId)
+                    put(currentPicker.openingId, evidenceIds)
                 }
                 picking = null
             }
@@ -938,8 +985,7 @@ private fun PdfExportDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "Para reducir hojas y peso, el informe incluye como máximo una foto por vano. " +
-                        "Por defecto queda seleccionada la última foto tomada; podés cambiarla u omitirla."
+                    "Por defecto se incluye la última foto tomada de cada vano. Podés elegir otra, omitirla o incluir todas las fotos del vano."
                 )
                 if (choices.isEmpty()) {
                     Text(
@@ -954,14 +1000,14 @@ private fun PdfExportDialog(
                         items(items = choices, key = { it.openingId }) { choice ->
                             PdfOpeningPhotoRow(
                                 choice = choice,
-                                selectedEvidenceId = selections[choice.openingId],
+                                selectedEvidenceIds = selections[choice.openingId].orEmpty(),
                                 onChange = { if (choice.photos.isNotEmpty()) picking = choice }
                             )
                         }
                     }
                 }
                 Text(
-                    "El PDF usa una ficha compacta por vano con medidas y foto en la misma hoja.",
+                    "Al elegir todas, la foto más reciente queda en la ficha del vano y las demás se agregan en páginas fotográficas completas.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -973,10 +1019,15 @@ private fun PdfExportDialog(
 @Composable
 private fun PdfOpeningPhotoRow(
     choice: PdfOpeningPhotoChoice,
-    selectedEvidenceId: Long?,
+    selectedEvidenceIds: List<Long>,
     onChange: () -> Unit
 ) {
-    val selected = choice.photos.firstOrNull { it.id == selectedEvidenceId }
+    val selectedSet = selectedEvidenceIds.toSet()
+    val selectedPhotos = choice.photos.filter { it.id in selectedSet }
+    val selected = selectedPhotos.firstOrNull()
+    val allSelected = choice.photos.isNotEmpty() &&
+        selectedSet.size == choice.photos.size &&
+        choice.photos.all { it.id in selectedSet }
     val bitmap by rememberPhotoBitmap(
         path = selected?.filePath.orEmpty(),
         maxSide = 260,
@@ -1013,32 +1064,43 @@ private fun PdfOpeningPhotoRow(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(choice.openingCode, fontWeight = FontWeight.SemiBold)
                 Text(choice.spaceName, style = MaterialTheme.typography.bodySmall)
-                if (selected != null) {
-                    Text(
-                        "${phaseLabel(selected.phase)} · ${dateFormat.format(Date(selected.createdAt))}",
+                when {
+                    choice.photos.isEmpty() -> Text(
+                        "Este vano no tiene fotografías",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (selected.id == choice.defaultEvidenceId) {
+                    selectedPhotos.isEmpty() -> Text(
+                        "No se incluirán fotografías",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    allSelected -> Text(
+                        "Todas las fotos · ${selectedPhotos.size}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    selected != null -> {
                         Text(
-                            "Última foto · selección predeterminada",
+                            "${phaseLabel(selected.phase)} · ${dateFormat.format(Date(selected.createdAt))}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (selected.id == choice.defaultEvidenceId) {
+                            Text(
+                                "Última foto · predeterminada",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
-                } else {
-                    Text(
-                        if (choice.photos.isEmpty()) "Este vano no tiene fotografías" else "No se incluirá fotografía",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
 
             TextButton(
                 onClick = onChange,
                 enabled = choice.photos.isNotEmpty()
-            ) { Text("Cambiar") }
+            ) { Text("Elegir") }
         }
     }
 }
@@ -1046,16 +1108,21 @@ private fun PdfOpeningPhotoRow(
 @Composable
 private fun PdfPhotoPickerDialog(
     choice: PdfOpeningPhotoChoice,
-    selectedEvidenceId: Long?,
+    selectedEvidenceIds: List<Long>,
     onDismiss: () -> Unit,
-    onSelect: (Long?) -> Unit
+    onSelect: (List<Long>) -> Unit
 ) {
+    val allPhotoIds = choice.photos.map { it.id }
+    val allSelected = allPhotoIds.isNotEmpty() &&
+        selectedEvidenceIds.size == allPhotoIds.size &&
+        selectedEvidenceIds.toSet() == allPhotoIds.toSet()
+
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onDismiss) { Text("Cancelar") }
         },
-        title = { Text("Foto para ${choice.openingCode}") },
+        title = { Text("Fotos para ${choice.openingCode}") },
         text = {
             LazyColumn(
                 modifier = Modifier.heightIn(max = 520.dp),
@@ -1065,7 +1132,7 @@ private fun PdfPhotoPickerDialog(
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onSelect(null) },
+                            .clickable { onSelect(emptyList()) },
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
@@ -1074,15 +1141,41 @@ private fun PdfPhotoPickerDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
-                                selected = selectedEvidenceId == null,
-                                onClick = { onSelect(null) }
+                                selected = selectedEvidenceIds.isEmpty(),
+                                onClick = { onSelect(emptyList()) }
                             )
                             Column {
-                                Text("No incluir foto", fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    "Reduce todavía más el tamaño del informe.",
-                                    style = MaterialTheme.typography.labelSmall
+                                Text("No incluir fotos", fontWeight = FontWeight.SemiBold)
+                                Text("La ficha se genera solo con los datos técnicos.", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                }
+
+                if (choice.photos.size > 1) {
+                    item {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelect(allPhotoIds) },
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                        ) {
+                            Row(
+                                Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = allSelected,
+                                    onClick = { onSelect(allPhotoIds) }
                                 )
+                                Column {
+                                    Text("Incluir todas las fotos (${choice.photos.size})", fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        "La más reciente va en la ficha y el resto en páginas adicionales.",
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
                             }
                         }
                     }
@@ -1091,9 +1184,9 @@ private fun PdfPhotoPickerDialog(
                 items(items = choice.photos, key = { it.id }) { photo ->
                     PdfPhotoPickerRow(
                         photo = photo,
-                        isSelected = photo.id == selectedEvidenceId,
+                        isSelected = selectedEvidenceIds.size == 1 && selectedEvidenceIds.firstOrNull() == photo.id,
                         isLatest = photo.id == choice.defaultEvidenceId,
-                        onClick = { onSelect(photo.id) }
+                        onClick = { onSelect(listOf(photo.id)) }
                     )
                 }
             }
@@ -1142,7 +1235,7 @@ private fun PdfPhotoPickerRow(
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    if (isLatest) "Última foto" else phaseLabel(photo.phase),
+                    if (isLatest) "Última foto · predeterminada" else phaseLabel(photo.phase),
                     fontWeight = if (isLatest) FontWeight.SemiBold else FontWeight.Normal
                 )
                 Text(
@@ -1215,7 +1308,8 @@ fun SpaceScreen(
     projectId: Long,
     spaceId: Long,
     onBack: () -> Unit,
-    onOpenOpening: (Long) -> Unit
+    onOpenOpening: (Long) -> Unit,
+    onDeleted: () -> Unit
 ) {
     val openings by vm.openings(spaceId).collectAsState(initial = emptyList())
     var spaceName by remember { mutableStateOf("Vanos") }
@@ -1223,6 +1317,8 @@ fun SpaceScreen(
     var suggestedCode by remember { mutableStateOf("V01") }
     var query by remember { mutableStateOf("") }
     var statusFilter by remember { mutableStateOf("TODAS") }
+    var showSpaceMenu by remember { mutableStateOf(false) }
+    var showDeleteSpace by remember { mutableStateOf(false) }
 
     LaunchedEffect(spaceId) { spaceName = vm.space(spaceId)?.name ?: "Vanos" }
     LaunchedEffect(showDialog, openings.size) {
@@ -1254,7 +1350,26 @@ fun SpaceScreen(
                         )
                     }
                 },
-                navigationIcon = { TextButton(onClick = onBack) { Text("←") } }
+                navigationIcon = { TextButton(onClick = onBack) { Text("←") } },
+                actions = {
+                    Box {
+                        TextButton(onClick = { showSpaceMenu = true }) {
+                            Text("⋮", style = MaterialTheme.typography.titleLarge)
+                        }
+                        DropdownMenu(
+                            expanded = showSpaceMenu,
+                            onDismissRequest = { showSpaceMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Eliminar espacio") },
+                                onClick = {
+                                    showSpaceMenu = false
+                                    showDeleteSpace = true
+                                }
+                            )
+                        }
+                    }
+                }
             )
         },
         floatingActionButton = {
@@ -1327,6 +1442,25 @@ fun SpaceScreen(
             }
             item { Spacer(Modifier.height(80.dp)) }
         }
+    }
+
+    if (showDeleteSpace) {
+        AlertDialog(
+            onDismissRequest = { showDeleteSpace = false },
+            title = { Text("Eliminar espacio") },
+            text = {
+                Text(
+                    "Se eliminará $spaceName junto con sus ${openings.size} vano(s) y todas las fotografías asociadas. Esta acción no se puede deshacer."
+                )
+            },
+            dismissButton = { TextButton(onClick = { showDeleteSpace = false }) { Text("Cancelar") } },
+            confirmButton = {
+                Button(onClick = {
+                    showDeleteSpace = false
+                    vm.deleteSpace(projectId, spaceId) { onDeleted() }
+                }) { Text("Eliminar definitivamente") }
+            }
+        )
     }
 
     if (showDialog) {
@@ -1482,7 +1616,8 @@ fun OpeningScreen(
     onCamera: () -> Unit,
     onEditEvidence: (Long) -> Unit,
     onDuplicated: (Long) -> Unit,
-    onNavigateOpening: (Long) -> Unit
+    onNavigateOpening: (Long) -> Unit,
+    onDeleted: () -> Unit
 ) {
     var opening by remember(openingId) { mutableStateOf<OpeningEntity?>(null) }
     val evidence by vm.evidence(openingId).collectAsState(initial = emptyList())
@@ -1519,6 +1654,9 @@ fun OpeningScreen(
     var savedFlash by remember(o.id) { mutableStateOf(true) }
     var showIncidenceDialog by remember { mutableStateOf(false) }
     var fastMode by remember { mutableStateOf(true) }
+    var showOpeningMenu by remember { mutableStateOf(false) }
+    var showDeleteOpening by remember { mutableStateOf(false) }
+    var evidenceToDelete by remember { mutableStateOf<EvidenceEntity?>(null) }
     val audioTypology = type.trim().uppercase(Locale.ROOT).ifBlank { "VANO" }
     val typologyAudioFlow = remember(projectId, audioTypology) { vm.typologyAudioNotes(projectId, audioTypology) }
     val typologyAudioNotes by typologyAudioFlow.collectAsState(initial = emptyList())
@@ -1597,9 +1735,25 @@ fun OpeningScreen(
                     Text(
                         if (savedFlash) "Guardado ✓" else "Guardando…",
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (savedFlash) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(end = 12.dp)
+                        color = if (savedFlash) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Box {
+                        TextButton(onClick = { showOpeningMenu = true }) {
+                            Text("⋮", style = MaterialTheme.typography.titleLarge)
+                        }
+                        DropdownMenu(
+                            expanded = showOpeningMenu,
+                            onDismissRequest = { showOpeningMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Eliminar vano") },
+                                onClick = {
+                                    showOpeningMenu = false
+                                    showDeleteOpening = true
+                                }
+                            )
+                        }
+                    }
                 }
             )
         },
@@ -1864,7 +2018,13 @@ fun OpeningScreen(
                     } else {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             items(items = evidence, key = { it.id }) { item ->
-                                EvidenceThumb(item, branding.companyName, brandLogo) { onEditEvidence(item.id) }
+                                EvidenceThumb(
+                                    item = item,
+                                    companyName = branding.companyName,
+                                    logo = brandLogo,
+                                    onClick = { onEditEvidence(item.id) },
+                                    onDelete = { evidenceToDelete = item }
+                                )
                             }
                         }
                     }
@@ -1874,6 +2034,40 @@ fun OpeningScreen(
 
             item { Spacer(Modifier.height(80.dp)) }
         }
+    }
+
+    if (showDeleteOpening) {
+        AlertDialog(
+            onDismissRequest = { showDeleteOpening = false },
+            title = { Text("Eliminar vano") },
+            text = {
+                Text(
+                    "Se eliminará ${code.ifBlank { o.code }} y sus ${evidence.size} fotografía(s), incluyendo cotas y anotaciones. Esta acción no se puede deshacer."
+                )
+            },
+            dismissButton = { TextButton(onClick = { showDeleteOpening = false }) { Text("Cancelar") } },
+            confirmButton = {
+                Button(onClick = {
+                    showDeleteOpening = false
+                    vm.deleteOpening(projectId, openingId) { onDeleted() }
+                }) { Text("Eliminar definitivamente") }
+            }
+        )
+    }
+
+    evidenceToDelete?.let { photo ->
+        AlertDialog(
+            onDismissRequest = { evidenceToDelete = null },
+            title = { Text("Eliminar fotografía") },
+            text = { Text("La fotografía y sus cotas/anotaciones se eliminarán de este vano. Esta acción no se puede deshacer.") },
+            dismissButton = { TextButton(onClick = { evidenceToDelete = null }) { Text("Cancelar") } },
+            confirmButton = {
+                Button(onClick = {
+                    vm.deleteEvidence(projectId, photo)
+                    evidenceToDelete = null
+                }) { Text("Eliminar") }
+            }
+        )
     }
 
     if (showIncidenceDialog) {
@@ -2327,20 +2521,18 @@ private fun EvidenceThumb(
     item: EvidenceEntity,
     companyName: String,
     logo: ImageBitmap?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDelete: () -> Unit
 ) {
     val bitmap by rememberPhotoBitmap(item.filePath, maxSide = 420, rotationDegrees = item.rotationDegrees)
-    ElevatedCard(
-        Modifier
-            .width(160.dp)
-            .clickable(onClick = onClick)
-    ) {
+    ElevatedCard(Modifier.width(170.dp)) {
         Column {
             Box(
                 Modifier
                     .fillMaxWidth()
                     .height(116.dp)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable(onClick = onClick)
             ) {
                 bitmap?.let {
                     androidx.compose.foundation.Image(
@@ -2383,14 +2575,18 @@ private fun EvidenceThumb(
                     }
                 }
             }
-            Column(Modifier.padding(10.dp)) {
+            Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
                 Text(phaseLabel(item.phase), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
                 Text(
-                    if (item.caption.isBlank()) "Abrir / documentar" else item.caption,
+                    if (item.caption.isBlank()) "Sin comentario" else item.caption,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodySmall
                 )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    TextButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("Abrir") }
+                    TextButton(onClick = onDelete, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("Eliminar") }
+                }
             }
         }
     }
@@ -2824,7 +3020,7 @@ private fun PersonalizationDialog(
                 Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text("Tema de la aplicación", fontWeight = FontWeight.SemiBold)
+                Text("Tema visual", fontWeight = FontWeight.SemiBold)
                 Row(
                     Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -2840,7 +3036,7 @@ private fun PersonalizationDialog(
                     fontWeight = FontWeight.SemiBold
                 )
                 HexColorSetting(
-                    label = "Color de la app",
+                    label = "Color principal",
                     value = draft.accentColorHex,
                     onValueChange = { draft = draft.copy(accentColorHex = it) },
                     presets = listOf("#0B5E55", "#1565C0", "#6A1B9A", "#C62828", "#EF6C00", "#37474F")
@@ -3125,14 +3321,10 @@ private fun AboutAppDialog(
     val packageInfo = remember(context.packageName) {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0) }.getOrNull()
     }
-    val versionName = packageInfo?.versionName ?: "1.3.9"
-    val versionCode = packageInfo?.let {
-        androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(it).toString()
-    } ?: "21"
-
+    val versionName = packageInfo?.versionName ?: "1.4.2"
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Sobre esta app") },
+        title = { Text("Información") },
         confirmButton = {
             Button(onClick = onDismiss) { Text("Cerrar") }
         },
@@ -3163,19 +3355,15 @@ private fun AboutAppDialog(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Aplicación exclusiva para IDEA S.A.",
+                    "Herramienta de relevamiento de IDEA S.A.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 HorizontalDivider()
-                AboutInfoRow("Nombre de la app", "Grupo IDEA - Relevamientos")
-                AboutInfoRow("Desarrollador", "Gastón Cabás - Para IDEA S.A.")
+                AboutInfoRow("Producto", "Grupo IDEA - Relevamientos")
                 AboutInfoRow("Empresa", "IDEA S.A.")
-                AboutInfoRow("Plataforma", "Android")
-                AboutInfoRow("Nombre del paquete", context.packageName)
-                AboutInfoRow("N° de versión", versionName)
-                AboutInfoRow("Código de versión", versionCode)
+                AboutInfoRow("Versión", versionName)
                 AboutInfoRow("Funcionamiento", "Local / offline")
                 AboutInfoRow("Formato de intercambio", ".gidea")
 
@@ -3260,7 +3448,7 @@ private fun BrandingDialog(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    "Esta aplicación está configurada exclusivamente para Grupo IDEA. El logo y la marca utilizados en fotografías e informes no pueden ser reemplazados ni desactivados desde la aplicación.",
+                    "Identidad corporativa fija para Grupo IDEA. El logo utilizado en fotografías e informes no puede ser reemplazado ni desactivado.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

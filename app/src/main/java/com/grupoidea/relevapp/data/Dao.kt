@@ -56,6 +56,9 @@ interface SpaceDao {
 
     @Update
     suspend fun update(item: SpaceEntity)
+
+    @Delete
+    suspend fun delete(item: SpaceEntity)
 }
 
 @Dao
@@ -80,6 +83,9 @@ interface OpeningDao {
 
     @Update
     suspend fun update(item: OpeningEntity)
+
+    @Delete
+    suspend fun delete(item: OpeningEntity)
 }
 
 @Dao
