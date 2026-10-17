@@ -632,6 +632,7 @@ fun ProjectScreen(
     onOpenSpace: (Long) -> Unit,
     onSharePdf: (java.io.File) -> Unit,
     onShareData: (java.io.File) -> Unit,
+    onShareImages: (List<java.io.File>) -> Unit,
     onDeleted: () -> Unit
 ) {
     val spaces by vm.spaces(projectId).collectAsState(initial = emptyList())
@@ -653,6 +654,9 @@ fun ProjectScreen(
     var dataExportError by remember { mutableStateOf<String?>(null) }
     var showProjectMenu by remember { mutableStateOf(false) }
     var showDeleteProject by remember { mutableStateOf(false) }
+    var showShareImagesDialog by remember { mutableStateOf(false) }
+    var imagesExporting by remember { mutableStateOf(false) }
+    var imagesExportError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(projectId) { project = vm.project(projectId) }
     val p = project
@@ -709,6 +713,14 @@ fun ProjectScreen(
                             expanded = showProjectMenu,
                             onDismissRequest = { showProjectMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("Compartir fotos de la obra") },
+                                enabled = !imagesExporting,
+                                onClick = {
+                                    showProjectMenu = false
+                                    showShareImagesDialog = true
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Eliminar obra") },
                                 onClick = {
@@ -898,6 +910,54 @@ fun ProjectScreen(
         )
     }
 
+    if (showShareImagesDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!imagesExporting) showShareImagesDialog = false },
+            title = { Text("Compartir fotos de la obra") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Se prepararán todas las fotografías de la obra para compartirlas juntas: fotos generales y fotos de todos los vanos."
+                    )
+                    Text(
+                        "Las fotos de los vanos conservan cotas, anotaciones y sello de Grupo IDEA. Las fotos generales se identifican con el membrete corporativo. Si la marca de agua está configurada al frente, también se aplica sobre las imágenes compartidas.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Las copias para compartir se generan en JPEG optimizado; las fotos originales del relevamiento no se modifican.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !imagesExporting,
+                    onClick = { showShareImagesDialog = false }
+                ) { Text("Cancelar") }
+            },
+            confirmButton = {
+                Button(
+                    enabled = !imagesExporting,
+                    onClick = {
+                        imagesExporting = true
+                        vm.exportProjectImages(projectId) { result ->
+                            imagesExporting = false
+                            result.onSuccess { files ->
+                                showShareImagesDialog = false
+                                onShareImages(files)
+                            }.onFailure {
+                                showShareImagesDialog = false
+                                imagesExportError = it.message ?: "No se pudieron preparar las fotografías"
+                            }
+                        }
+                    }
+                ) { Text(if (imagesExporting) "Preparando…" else "Compartir todas") }
+            }
+        )
+    }
+
     if (showDeleteProject) {
         AlertDialog(
             onDismissRequest = { showDeleteProject = false },
@@ -926,6 +986,15 @@ fun ProjectScreen(
             onDismissRequest = { dataExportError = null },
             confirmButton = { TextButton(onClick = { dataExportError = null }) { Text("Aceptar") } },
             title = { Text("No se pudo exportar la obra") },
+            text = { Text(message) }
+        )
+    }
+
+    imagesExportError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { imagesExportError = null },
+            confirmButton = { TextButton(onClick = { imagesExportError = null }) { Text("Aceptar") } },
+            title = { Text("No se pudieron compartir las fotos") },
             text = { Text(message) }
         )
     }
@@ -1007,7 +1076,7 @@ private fun PdfExportDialog(
                     }
                 }
                 Text(
-                    "Al elegir todas, la foto más reciente queda en la ficha del vano y las demás se agregan en páginas fotográficas completas.",
+                    "Al elegir todas, la foto más reciente queda en la ficha del vano y todas las fotos secundarias se agrupan en una única hoja para mantener el PDF compacto.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1172,7 +1241,7 @@ private fun PdfPhotoPickerDialog(
                                 Column {
                                     Text("Incluir todas las fotos (${choice.photos.size})", fontWeight = FontWeight.SemiBold)
                                     Text(
-                                        "La más reciente va en la ficha y el resto en páginas adicionales.",
+                                        "La más reciente va en la ficha y todas las restantes se agrupan en una sola hoja.",
                                         style = MaterialTheme.typography.labelSmall
                                     )
                                 }

@@ -19,6 +19,8 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.roundToInt
+import kotlin.math.ceil
+import kotlin.math.sqrt
 
 class ReportPdf(private val context: Context) {
     data class OpeningBundle(
@@ -134,21 +136,24 @@ class ReportPdf(private val context: Context) {
                 )
                 finish(page)
 
-                // La primera fotografía comparte la ficha técnica del vano. Cuando el
-                // usuario elige incluir todas, las restantes se agregan en páginas
-                // fotográficas completas para conservar detalle y anotaciones.
-                bundle.evidence.drop(1).forEachIndexed { photoIndex, evidence ->
+                // La primera fotografía comparte la ficha técnica del vano. Si el usuario
+                // elige incluir todas, todas las fotografías secundarias se agrupan en una
+                // única hoja. Además de hacer el informe más compacto, se renderizan a una
+                // resolución acorde al tamaño real de cada celda para reducir el peso del PDF.
+                val secondaryEvidence = bundle.evidence.drop(1)
+                if (secondaryEvidence.isNotEmpty()) {
                     val photoPage = startPage(
-                        "VANO · ${bundle.opening.code} · FOTO ${photoIndex + 2} DE ${bundle.evidence.size}"
+                        "VANO · ${bundle.opening.code} · FOTOS ADICIONALES"
                     )
                     page = photoPage.first
                     canvas = photoPage.second
-                    drawEvidencePage(
+                    drawSecondaryEvidenceGrid(
                         canvas = canvas,
                         project = project,
                         space = space.space,
                         opening = bundle.opening,
-                        evidence = evidence,
+                        evidence = secondaryEvidence,
+                        totalPhotoCount = bundle.evidence.size,
                         branding = branding,
                         personalization = personalization
                     )
@@ -631,6 +636,92 @@ class ReportPdf(private val context: Context) {
             canvas.drawText("Observaciones", margin, y, h2Paint)
             y += 17f
             drawWrapped(canvas, o.notes, margin, y, pageWidth - margin * 2, bodyPaint, 8)
+        }
+    }
+
+    private fun drawSecondaryEvidenceGrid(
+        canvas: Canvas,
+        project: ProjectEntity,
+        space: SpaceEntity,
+        opening: OpeningEntity,
+        evidence: List<EvidenceEntity>,
+        totalPhotoCount: Int,
+        branding: BrandingSettings,
+        personalization: PersonalizationSettings = PersonalizationSettings()
+    ) {
+        if (evidence.isEmpty()) return
+
+        val count = evidence.size
+        // La proporción 0,74 aproxima el área útil de una hoja A4 vertical y mantiene
+        // una grilla equilibrada incluso cuando un vano acumula muchas fotografías.
+        val columns = ceil(sqrt(count.toDouble() * 0.74)).toInt().coerceAtLeast(1)
+        val rows = ceil(count / columns.toDouble()).toInt().coerceAtLeast(1)
+
+        val top = 96f
+        val bottom = pageHeight - 38f
+        val gap = 9f
+        val usableWidth = pageWidth - margin * 2f
+        val usableHeight = bottom - top
+        val cellWidth = (usableWidth - gap * (columns - 1)) / columns
+        val cellHeight = (usableHeight - gap * (rows - 1)) / rows
+        val labelHeight = (cellHeight * 0.18f).coerceIn(19f, 34f)
+        val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(205, 216, 212)
+            style = Paint.Style.STROKE
+            strokeWidth = 1f
+        }
+        val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(246, 248, 247) }
+
+        evidence.forEachIndexed { index, item ->
+            val column = index % columns
+            val row = index / columns
+            val left = margin + column * (cellWidth + gap)
+            val cellTop = top + row * (cellHeight + gap)
+            val cell = RectF(left, cellTop, left + cellWidth, cellTop + cellHeight)
+            val imageRect = RectF(cell.left, cell.top, cell.right, cell.bottom - labelHeight)
+            canvas.drawRect(cell, bg)
+
+            // Dos a tres píxeles por punto impreso son suficientes para estas miniaturas.
+            // Evita incrustar nuevamente imágenes de 2–4K cuando en el PDF ocupan una celda pequeña.
+            val targetMaxSide = (maxOf(imageRect.width(), imageRect.height()) * 2.35f)
+                .roundToInt()
+                .coerceIn(360, 900)
+            val annotated = PhotoRenderer.render(
+                evidence = item,
+                project = project,
+                space = space,
+                opening = opening,
+                branding = branding,
+                style = personalization,
+                maxSide = targetMaxSide
+            )
+            if (annotated != null) {
+                drawBitmapFitCenter(canvas, annotated, imageRect)
+                annotated.recycle()
+            } else {
+                canvas.drawText(
+                    "Imagen no disponible",
+                    imageRect.left + 8f,
+                    imageRect.centerY(),
+                    smallPaint
+                )
+            }
+
+            val photoNumber = index + 2
+            val labelY = cell.bottom - labelHeight + 12f
+            canvas.drawText(
+                "Foto $photoNumber/$totalPhotoCount · ${phaseLabel(item.phase)}",
+                cell.left + 6f,
+                labelY,
+                smallPaint
+            )
+            if (labelHeight >= 27f && item.caption.isNotBlank()) {
+                val caption = item.caption.replace("\n", " ").trim().let {
+                    if (it.length > 42) it.take(39) + "…" else it
+                }
+                canvas.drawText(caption, cell.left + 6f, labelY + 11f, smallPaint)
+            }
+            canvas.drawRect(cell, border)
         }
     }
 

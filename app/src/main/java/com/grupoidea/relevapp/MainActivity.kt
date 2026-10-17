@@ -122,6 +122,25 @@ private fun App(vm: AppViewModel) {
                         Intent.createChooser(sendIntent, "Compartir datos de la obra")
                     )
                 },
+                onShareImages = { files ->
+                    val uris = ArrayList(
+                        files.map { file ->
+                            FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.files",
+                                file
+                            )
+                        }
+                    )
+                    val sendIntent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                        type = "image/jpeg"
+                        putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(
+                        Intent.createChooser(sendIntent, "Compartir fotos de la obra")
+                    )
+                },
                 onDeleted = { screen = Screen.Projects }
             )
         }

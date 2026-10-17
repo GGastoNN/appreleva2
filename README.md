@@ -1,4 +1,4 @@
-# Grupo IDEA - Relevamientos — V1.4.2 gestión y PDF fotográfico
+# Grupo IDEA - Relevamientos — V1.4.3 gestión y PDF fotográfico
 
 > **Identidad exclusiva:** esta compilación utiliza el paquete `com.grupoidea.relevapp` y una marca Grupo IDEA fija incluida dentro del APK. El logo no puede modificarse desde la aplicación.
 
@@ -52,7 +52,8 @@ El archivo fotográfico original se conserva sin modificar. La marca y las anota
 - PDF compacto: una ficha por vano con medidas y la foto seleccionada en la misma hoja.
 - Cada hoja del PDF incorpora el logo oficial de IDEA S.A. como marca de agua; desde Personalización se puede ajustar su transparencia y elegir si se dibuja al fondo o al frente del contenido.
 - Antes de exportar se puede elegir qué foto incluir en cada vano; por defecto se selecciona la última tomada.
-- También se pueden incluir todas las fotos de un vano: la más reciente queda en la ficha y las restantes se agregan en páginas fotográficas completas.
+- También se pueden incluir todas las fotos de un vano: la más reciente queda en la ficha y todas las restantes se agrupan en una única hoja compacta para reducir el peso del PDF.
+- Desde el menú de una obra se pueden compartir todas sus fotografías ya procesadas con cotas, anotaciones y marca corporativa.
 - Se puede omitir la foto de un vano para reducir todavía más el peso del archivo.
 - Eliminación con confirmación de obras, espacios y vanos; las fotos técnicas también pueden eliminarse directamente desde la galería del vano o desde su editor.
 - Funcionamiento offline para relevamiento, fotos, base local y PDF.
@@ -73,8 +74,8 @@ La detección automática ubica candidatos visuales de vano, pero no convierte p
 - CameraX 1.4.1
 - compileSdk / targetSdk 35
 - Java 17
-- versionCode 26
-- versionName 1.4.2
+- versionCode 27
+- versionName 1.4.3
 
 ## Transferencia entre dispositivos (v1.0)
 
@@ -88,4 +89,4 @@ Desde **Ajustes → Personalización** se puede elegir tema del sistema, claro u
 
 ## Enfoque actual
 
-La versión 1.4.2 funciona de forma autónoma y offline. No utiliza servicios de nube, usuarios ni sincronización remota. La persistencia necesaria para que los relevamientos no se pierdan se mantiene localmente en el dispositivo, y el intercambio/backup se realiza mediante archivos `.gidea`.
+La versión 1.4.3 funciona de forma autónoma y offline. No utiliza servicios de nube, usuarios ni sincronización remota. La persistencia necesaria para que los relevamientos no se pierdan se mantiene localmente en el dispositivo, y el intercambio/backup se realiza mediante archivos `.gidea`.

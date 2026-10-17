@@ -3,14 +3,21 @@ package com.grupoidea.relevapp.ui
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.grupoidea.relevapp.R
 import com.grupoidea.relevapp.branding.BrandingStore
 import com.grupoidea.relevapp.data.*
 import com.grupoidea.relevapp.detection.OpeningDetector
 import com.grupoidea.relevapp.pdf.ReportPdf
 import com.grupoidea.relevapp.personalization.PersonalizationSettings
+import com.grupoidea.relevapp.personalization.PdfWatermarkLayer
 import com.grupoidea.relevapp.personalization.PersonalizationStore
 import com.grupoidea.relevapp.render.PhotoRenderer
 import com.grupoidea.relevapp.transfer.ProjectArchiveManager
@@ -719,6 +726,208 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         onReady(result)
     }
+
+    fun exportProjectImages(
+        projectId: Long,
+        onReady: (Result<List<File>>) -> Unit
+    ) = viewModelScope.launch {
+        val result = withContext(Dispatchers.IO) {
+            runCatching {
+                val app = getApplication<Application>()
+                val project = db.projects().project(projectId) ?: error("Obra inexistente")
+                val brand = branding.value
+                val style = personalization.value
+                val outDir = File(
+                    app.filesDir,
+                    "shared_project_photos/project_${projectId}_${System.currentTimeMillis()}"
+                ).apply { mkdirs() }
+                val files = mutableListOf<File>()
+                var sequence = 1
+
+                // Fotografías generales de la obra. Se comparten con una firma corporativa
+                // fija para que también queden identificadas fuera del informe PDF.
+                db.projectReferencePhotos().list(projectId)
+                    .filter { File(it.filePath).isFile }
+                    .forEach { reference ->
+                        val bitmap = renderReferencePhotoForShare(
+                            path = reference.filePath,
+                            project = project,
+                            style = style,
+                            maxSide = 1800
+                        ) ?: return@forEach
+                        val out = File(
+                            outDir,
+                            "%03d_Obra_general.jpg".format(Locale.ROOT, sequence++)
+                        )
+                        FileOutputStream(out).use { stream ->
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 88, stream)
+                        }
+                        bitmap.recycle()
+                        files += out
+                    }
+
+                // Todas las fotografías de vanos se procesan con las mismas cotas,
+                // anotaciones, sello y estilo usados por el informe PDF.
+                db.spaces().list(projectId).forEach { space ->
+                    db.openings().list(space.id).forEach { opening ->
+                        db.evidence().list(opening.id)
+                            .filter { File(it.filePath).isFile }
+                            .sortedBy { it.createdAt }
+                            .forEach evidenceLoop@ { evidence ->
+                                val bitmap = PhotoRenderer.render(
+                                    evidence = evidence,
+                                    project = project,
+                                    space = space,
+                                    opening = opening,
+                                    branding = brand,
+                                    style = style,
+                                    maxSide = 1800
+                                ) ?: return@evidenceLoop
+                                if (style.watermarkLayer == PdfWatermarkLayer.FOREGROUND) {
+                                    drawShareWatermark(bitmap, style)
+                                }
+                                val safeSpace = safeFilePart(space.name, "Espacio")
+                                val safeOpening = safeFilePart(opening.code, "Vano")
+                                val out = File(
+                                    outDir,
+                                    "%03d_%s_%s.jpg".format(Locale.ROOT, sequence++, safeSpace, safeOpening)
+                                )
+                                FileOutputStream(out).use { stream ->
+                                    bitmap.compress(Bitmap.CompressFormat.JPEG, 88, stream)
+                                }
+                                bitmap.recycle()
+                                files += out
+                            }
+                    }
+                }
+
+                require(files.isNotEmpty()) { "La obra no tiene fotografías disponibles para compartir." }
+                files
+            }
+        }
+        onReady(result)
+    }
+
+    private fun renderReferencePhotoForShare(
+        path: String,
+        project: ProjectEntity,
+        style: PersonalizationSettings,
+        maxSide: Int
+    ): Bitmap? {
+        val source = decodeShareBitmap(path, maxSide) ?: return null
+        val output = source.copy(Bitmap.Config.ARGB_8888, true) ?: run {
+            source.recycle()
+            return null
+        }
+        if (output !== source) source.recycle()
+        drawReferenceCorporateFooter(output, project)
+        if (style.watermarkLayer == PdfWatermarkLayer.FOREGROUND) {
+            drawShareWatermark(output, style)
+        }
+        return output
+    }
+
+    private fun decodeShareBitmap(path: String, maxSide: Int): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        var sample = 1
+        val largest = maxOf(bounds.outWidth, bounds.outHeight)
+        while (largest / sample > maxSide * 2) sample *= 2
+        val decoded = BitmapFactory.decodeFile(
+            path,
+            BitmapFactory.Options().apply { inSampleSize = sample.coerceAtLeast(1) }
+        ) ?: return null
+        val decodedLargest = maxOf(decoded.width, decoded.height)
+        if (decodedLargest <= maxSide) return decoded
+        val scale = maxSide.toFloat() / decodedLargest.toFloat()
+        val width = (decoded.width * scale).toInt().coerceAtLeast(1)
+        val height = (decoded.height * scale).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(decoded, width, height, true).also { scaled ->
+            if (scaled !== decoded) decoded.recycle()
+        }
+    }
+
+    private fun drawReferenceCorporateFooter(bitmap: Bitmap, project: ProjectEntity) {
+        val canvas = Canvas(bitmap)
+        val width = bitmap.width.toFloat()
+        val height = bitmap.height.toFloat()
+        val footerHeight = (height * 0.13f).coerceIn(110f, 260f)
+        val top = height - footerHeight
+        val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(205, 10, 22, 48) }
+        canvas.drawRect(0f, top, width, height, bg)
+
+        var textLeft = (width * 0.035f).coerceAtLeast(18f)
+        val logoPath = branding.value.logoPath
+        val logo = logoPath.takeIf { it.isNotBlank() && File(it).isFile }
+            ?.let { BitmapFactory.decodeFile(it) }
+        if (logo != null) {
+            val maxLogoHeight = footerHeight * 0.68f
+            val maxLogoWidth = width * 0.23f
+            val scale = minOf(maxLogoWidth / logo.width, maxLogoHeight / logo.height)
+            val drawW = logo.width * scale
+            val drawH = logo.height * scale
+            val left = width * 0.028f
+            val logoTop = top + (footerHeight - drawH) / 2f
+            canvas.drawBitmap(logo, null, RectF(left, logoTop, left + drawW, logoTop + drawH), null)
+            textLeft = left + drawW + width * 0.025f
+            logo.recycle()
+        }
+
+        val title = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = (width / 34f).coerceIn(28f, 58f)
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        val body = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(230, 235, 244)
+            textSize = (width / 53f).coerceIn(20f, 38f)
+        }
+        canvas.drawText("Grupo IDEA", textLeft, top + footerHeight * 0.43f, title)
+        val projectText = project.name.let { if (it.length > 55) it.take(52) + "…" else it }
+        canvas.drawText("Obra: $projectText", textLeft, top + footerHeight * 0.72f, body)
+    }
+
+    private fun drawShareWatermark(bitmap: Bitmap, style: PersonalizationSettings) {
+        val app = getApplication<Application>()
+        val watermark = runCatching {
+            BitmapFactory.decodeResource(app.resources, R.drawable.grupoidea_watermark)
+        }.getOrNull() ?: return
+        if (watermark.width <= 0 || watermark.height <= 0) {
+            watermark.recycle()
+            return
+        }
+        val canvas = Canvas(bitmap)
+        val maxWidth = bitmap.width * 0.68f
+        val maxHeight = bitmap.height * 0.30f
+        val scale = minOf(
+            maxWidth / watermark.width.toFloat(),
+            maxHeight / watermark.height.toFloat()
+        )
+        val drawWidth = watermark.width * scale
+        val drawHeight = watermark.height * scale
+        val left = (bitmap.width - drawWidth) / 2f
+        val top = (bitmap.height - drawHeight) / 2f
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+            alpha = (style.watermarkOpacity.coerceIn(0.05f, 0.80f) * 255f)
+                .toInt()
+                .coerceIn(13, 204)
+        }
+        canvas.drawBitmap(
+            watermark,
+            null,
+            RectF(left, top, left + drawWidth, top + drawHeight),
+            paint
+        )
+        watermark.recycle()
+    }
+
+    private fun safeFilePart(value: String, fallback: String): String = value
+        .trim()
+        .replace(Regex("[^A-Za-z0-9áéíóúÁÉÍÓÚñÑ_-]+"), "_")
+        .trim('_')
+        .take(36)
+        .ifBlank { fallback }
 
     private suspend fun touchProject(projectId: Long) {
         val project = db.projects().project(projectId) ?: return
